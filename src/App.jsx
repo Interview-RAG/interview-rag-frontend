@@ -5,7 +5,7 @@ import Collection from './components/Collection';
 import AddQA from './components/AddQA';
 import Chatbot from './components/Chatbot';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'https://interview-rag-backend.onrender.com/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('collection');
