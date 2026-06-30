@@ -91,7 +91,7 @@ function App() {
       </div>
 
       <div className="main-content">
-        {activeTab === 'collection' && <Collection collection={collection} refresh={fetchCollection} />}
+        {activeTab === 'collection' && <Collection collection={collection} refresh={fetchCollection} API_BASE={API_BASE} showToast={showToast} />}
         {activeTab === 'add' && <AddQA API_BASE={API_BASE} refresh={fetchCollection} showToast={showToast} setActiveTab={setActiveTab} />}
         {activeTab === 'chat' && <Chatbot API_BASE={API_BASE} />}
       </div>
