@@ -1,6 +1,19 @@
 import React from 'react';
+import axios from 'axios';
+import { Trash2 } from 'lucide-react';
 
-const Collection = ({ collection, refresh }) => {
+const Collection = ({ collection, refresh, API_BASE, showToast }) => {
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this Q&A?")) return;
+    try {
+      await axios.delete(`${API_BASE}/qa/${id}`);
+      if (showToast) showToast("Deleted successfully");
+      refresh();
+    } catch (err) {
+      console.error(err);
+      if (showToast) showToast("Error deleting Q&A");
+    }
+  };
   return (
     <div>
       <div className="page-title">Interview Collection</div>
@@ -22,6 +35,14 @@ const Collection = ({ collection, refresh }) => {
             <div className="answer-text">
               {qa.answer}
             </div>
+            <button 
+              className="delete-btn" 
+              onClick={() => handleDelete(qa.id)}
+              style={{ marginTop: '15px', backgroundColor: 'transparent', border: '1px solid #ff4444', color: '#ff4444', padding: '5px 10px', borderRadius: '5px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}
+            >
+              <Trash2 size={16} />
+              Delete
+            </button>
           </div>
         ))
       )}
