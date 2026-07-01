@@ -9,6 +9,7 @@ const Chatbot = ({ API_BASE }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [approvalData, setApprovalData] = useState(null);
   
   const [menuOpenId, setMenuOpenId] = useState(null);
   const [editingId, setEditingId] = useState(null);
@@ -110,7 +111,16 @@ const Chatbot = ({ API_BASE }) => {
 
     try {
       const res = await axios.post(`${API_BASE}/chat`, { query: userMessage, session_id: activeSession.id });
-      setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
+      
+      if (res.data.status === 'requires_approval') {
+        setMessages(prev => [...prev, { role: 'bot', text: res.data.answer_msg }]);
+        setApprovalData({
+            ...res.data,
+            approvals: res.data.approvals.map(a => ({ ...a, approved: true }))
+        });
+      } else {
+        setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
+      }
       
       // Update session title if backend auto-generated it for a new chat
       if (res.data.session_title) {
@@ -125,9 +135,111 @@ const Chatbot = ({ API_BASE }) => {
     }
   };
 
+  const handleApproveSave = async () => {
+    if (!approvalData) return;
+    setLoading(true);
+    
+    // Map the items to what the backend expects
+    const dataToSend = {
+      session_id: activeSession.id,
+      approvals: approvalData.approvals.map(item => ({
+          tool_call_id: item.tool_call_id,
+          question: item.question,
+          answer: item.answer,
+          approved: item.approved
+      }))
+    };
+    
+    setApprovalData(null);
+    try {
+      const res = await axios.post(`${API_BASE}/chat/approve-save`, dataToSend);
+      setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
+    } catch (err) {
+      console.error(err);
+      setMessages(prev => [...prev, { role: 'bot', text: 'Error processing approval.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="chat-layout" style={{ display: 'flex', height: '100%', gap: '20px' }}>
+    <div className="chat-layout" style={{ display: 'flex', height: '100%', gap: '20px', position: 'relative' }}>
       
+      {/* Approval Modal */}
+      {approvalData && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div className="glass-panel" style={{ width: '800px', maxWidth: '95%', maxHeight: '90vh', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
+            <h3 style={{ margin: 0, color: 'var(--text-primary)', flexShrink: 0 }}>Review {approvalData.approvals.length} Q&A Pairs Before Saving</h3>
+            
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px', paddingRight: '10px' }}>
+                {approvalData.approvals.map((item, index) => (
+                    <div key={item.tool_call_id} style={{ backgroundColor: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: 'var(--text-primary)', fontWeight: 'bold' }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={item.approved} 
+                                    onChange={(e) => {
+                                        const newData = {...approvalData};
+                                        newData.approvals[index].approved = e.target.checked;
+                                        setApprovalData(newData);
+                                    }}
+                                />
+                                Approve and Save this Item
+                            </label>
+                        </div>
+                        
+                        <div style={{ opacity: item.approved ? 1 : 0.5, transition: 'opacity 0.2s' }}>
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Question</label>
+                              <textarea 
+                                className="form-input" 
+                                style={{ width: '100%', height: '60px', resize: 'vertical' }}
+                                value={item.question}
+                                disabled={!item.approved}
+                                onChange={(e) => {
+                                    const newData = {...approvalData};
+                                    newData.approvals[index].question = e.target.value;
+                                    setApprovalData(newData);
+                                }}
+                              />
+                            </div>
+
+                            <div>
+                              <label style={{ display: 'block', fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Drafted Answer</label>
+                              <textarea 
+                                className="form-input" 
+                                style={{ width: '100%', height: '150px', resize: 'vertical' }}
+                                value={item.answer}
+                                disabled={!item.approved}
+                                onChange={(e) => {
+                                    const newData = {...approvalData};
+                                    newData.approvals[index].answer = e.target.value;
+                                    setApprovalData(newData);
+                                }}
+                              />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px', flexShrink: 0, borderTop: '1px solid var(--panel-border)', paddingTop: '15px' }}>
+              <button className="btn" style={{ backgroundColor: 'transparent', border: '1px solid var(--panel-border)' }} onClick={() => setApprovalData(null)}>
+                Cancel
+              </button>
+              <button className="btn" onClick={handleApproveSave}>
+                Submit Approvals
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sidebar for Sessions */}
       <div className="glass-panel" style={{ width: '250px', display: 'flex', flexDirection: 'column', padding: '15px' }}>
         <button className="btn" onClick={createNewSession} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px', justifyContent: 'center' }}>
