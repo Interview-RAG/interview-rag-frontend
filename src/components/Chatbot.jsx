@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Send, Bot, User, Plus, MessageSquare, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const Chatbot = ({ API_BASE }) => {
   const [sessions, setSessions] = useState([]);
@@ -39,7 +40,7 @@ const Chatbot = ({ API_BASE }) => {
       const res = await axios.get(`${API_BASE}/chat/sessions/${session.id}/messages`);
       const formatted = res.data.map(m => ({ role: m.role === 'user' ? 'user' : 'bot', text: m.content }));
       if (formatted.length === 0) {
-        formatted.push({ role: 'bot', text: 'Hello! I am your interview preparation assistant with memory. Ask me anything!' });
+        formatted.push({ role: 'bot', text: 'Hello! I am Interview AI, your personal preparation assistant. Ask me anything!' });
       }
       setMessages(formatted);
     } catch (err) {
@@ -52,7 +53,7 @@ const Chatbot = ({ API_BASE }) => {
       const res = await axios.post(`${API_BASE}/chat/sessions`, { title: "New Chat" });
       setSessions([res.data, ...sessions]);
       setActiveSession(res.data);
-      setMessages([{ role: 'bot', text: 'Hello! I am your interview preparation assistant with memory. Ask me anything!' }]);
+      setMessages([{ role: 'bot', text: 'Hello! I am Interview AI, your personal preparation assistant. Ask me anything!' }]);
     } catch (err) {
       console.error(err);
     }
@@ -110,6 +111,12 @@ const Chatbot = ({ API_BASE }) => {
     try {
       const res = await axios.post(`${API_BASE}/chat`, { query: userMessage, session_id: activeSession.id });
       setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
+      
+      // Update session title if backend auto-generated it for a new chat
+      if (res.data.session_title) {
+        setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: res.data.session_title } : s));
+        setActiveSession(prev => ({ ...prev, title: res.data.session_title }));
+      }
     } catch (err) {
       console.error("Chat error:", err);
       setMessages(prev => [...prev, { role: 'bot', text: 'Sorry, I encountered an error answering your question.' }]);
@@ -179,13 +186,27 @@ const Chatbot = ({ API_BASE }) => {
               <div style={{ flexShrink: 0, marginTop: '2px' }}>
                 {msg.role === 'bot' ? <Bot size={24} color="var(--accent-color)" /> : <User size={24} color="#fff" />}
               </div>
-              <div style={{ flex: 1, whiteSpace: 'pre-wrap' }}>{msg.text}</div>
+              <div style={{ flex: 1, whiteSpace: msg.role === 'bot' ? 'normal' : 'pre-wrap', lineHeight: '1.5' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 'bold' }}>
+                  {msg.role === 'bot' ? 'Interview AI' : 'You'}
+                </div>
+                {msg.role === 'bot' ? (
+                  <div className="markdown-content">
+                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                  </div>
+                ) : (
+                  msg.text
+                )}
+              </div>
             </div>
           ))}
           {loading && (
             <div className="chat-msg bot" style={{ display: 'flex', gap: '12px' }}>
               <Bot size={24} color="var(--accent-color)" />
-              <div className="typing-indicator">Thinking...</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 'bold' }}>Interview AI</div>
+                <div className="typing-indicator">Thinking...</div>
+              </div>
             </div>
           )}
           <div ref={endOfMessagesRef} />

@@ -246,7 +246,7 @@ body {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--panel-border);
   border-bottom-left-radius: 4px;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 .chat-input-area {
@@ -344,4 +344,45 @@ body {
   .qa-card {
     padding: 16px;
   }
+}
+
+/* Markdown Styles */
+.markdown-content p {
+  margin-bottom: 12px;
+}
+
+.markdown-content p:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-content h1, .markdown-content h2, .markdown-content h3 {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  color: var(--accent-color);
+}
+
+.markdown-content ul, .markdown-content ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.markdown-content li {
+  margin-bottom: 4px;
+}
+
+.markdown-content pre, .markdown-content code {
+  background: rgba(0,0,0,0.3);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+.markdown-content pre {
+  padding: 12px;
+  overflow-x: auto;
+  margin-bottom: 12px;
+}
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
 }

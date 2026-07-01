@@ -5,8 +5,9 @@ import Collection from './components/Collection';
 import AddQA from './components/AddQA';
 import Chatbot from './components/Chatbot';
 
-// const API_BASE = 'http://localhost:8000/api'; // Local dev
-const API_BASE = 'https://interview-rag-backend.onrender.com/api'; // Prod
+const API_BASE = import.meta.env.DEV 
+  ? 'http://localhost:8000/api' 
+  : 'https://interview-rag-backend.onrender.com/api';
 
 function App() {
   const [activeTab, setActiveTab] = useState('collection');
@@ -79,7 +80,7 @@ function App() {
           onClick={() => setActiveTab('chat')}
         >
           <MessageSquare size={20} />
-          Chatbot
+          Interview AI
         </div>
 
         <div style={{ marginTop: 'auto' }}>
