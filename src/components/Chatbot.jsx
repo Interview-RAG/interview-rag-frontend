@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { Send, Bot, User, Plus, MessageSquare, MoreVertical, Edit2, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
 const Chatbot = ({ API_BASE }) => {
   const [sessions, setSessions] = useState([]);
@@ -9,6 +11,7 @@ const Chatbot = ({ API_BASE }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [currentTool, setCurrentTool] = useState(null);
   const [approvalData, setApprovalData] = useState(null);
   
   const [menuOpenId, setMenuOpenId] = useState(null);
@@ -100,6 +103,16 @@ const Chatbot = ({ API_BASE }) => {
     scrollToBottom();
   }, [messages]);
 
+  const getToolDisplayName = (toolName) => {
+    switch(toolName) {
+      case 'search_knowledge_base': return 'Searching your saved Q&As...';
+      case 'search_web': return 'Searching the internet...';
+      case 'save_user_fact': return 'Updating your profile...';
+      case 'save_qa_to_collection': return 'Drafting Q&A...';
+      default: return 'Using tool...';
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
     if (!input.trim() || !activeSession) return;
@@ -108,30 +121,73 @@ const Chatbot = ({ API_BASE }) => {
     setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
     setInput('');
     setLoading(true);
+    setCurrentTool(null);
 
     try {
-      const res = await axios.post(`${API_BASE}/chat`, { query: userMessage, session_id: activeSession.id });
-      
-      if (res.data.status === 'requires_approval') {
-        setMessages(prev => [...prev, { role: 'bot', text: res.data.answer_msg }]);
-        setApprovalData({
-            ...res.data,
-            approvals: res.data.approvals.map(a => ({ ...a, approved: true }))
-        });
-      } else {
-        setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
+      const response = await fetch(`${API_BASE}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: userMessage, session_id: activeSession.id })
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
       }
-      
-      // Update session title if backend auto-generated it for a new chat
-      if (res.data.session_title) {
-        setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: res.data.session_title } : s));
-        setActiveSession(prev => ({ ...prev, title: res.data.session_title }));
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let done = false;
+      let buffer = '';
+
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        if (value) {
+          buffer += decoder.decode(value, { stream: true });
+          
+          const lines = buffer.split('\n');
+          // Keep the last partial line in the buffer
+          buffer = lines.pop() || '';
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.substring(6);
+              try {
+                const data = JSON.parse(dataStr);
+                
+                if (data.type === 'session_title') {
+                  setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: data.title } : s));
+                  setActiveSession(prev => ({ ...prev, title: data.title }));
+                } else if (data.type === 'tool_start') {
+                  setCurrentTool(getToolDisplayName(data.name));
+                } else if (data.type === 'tool_end') {
+                  setCurrentTool(null);
+                } else if (data.type === 'requires_approval') {
+                  setMessages(prev => [...prev, { role: 'bot', text: data.answer_msg }]);
+                  setApprovalData({
+                      ...data,
+                      approvals: data.approvals.map(a => ({ ...a, approved: true }))
+                  });
+                } else if (data.type === 'final_answer') {
+                  setMessages(prev => [...prev, { role: 'bot', text: data.content }]);
+                } else if (data.type === 'error') {
+                  setMessages(prev => [...prev, { role: 'bot', text: data.message }]);
+                }
+              } catch (e) {
+                console.error("Error parsing JSON from stream:", e);
+              }
+            }
+          }
+        }
       }
     } catch (err) {
       console.error("Chat error:", err);
       setMessages(prev => [...prev, { role: 'bot', text: 'Sorry, I encountered an error answering your question.' }]);
     } finally {
       setLoading(false);
+      setCurrentTool(null);
     }
   };
 
@@ -304,7 +360,9 @@ const Chatbot = ({ API_BASE }) => {
                 </div>
                 {msg.role === 'bot' ? (
                   <div className="markdown-content">
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+                      {msg.text}
+                    </ReactMarkdown>
                   </div>
                 ) : (
                   msg.text
@@ -317,7 +375,7 @@ const Chatbot = ({ API_BASE }) => {
               <Bot size={24} color="var(--accent-color)" />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px', fontWeight: 'bold' }}>Interview AI</div>
-                <div className="typing-indicator">Thinking...</div>
+                <div className="typing-indicator">{currentTool || "Thinking..."}</div>
               </div>
             </div>
           )}
