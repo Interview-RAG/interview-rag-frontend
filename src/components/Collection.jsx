@@ -1,6 +1,7 @@
 import React from 'react';
 import axios from 'axios';
 import { Trash2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 const Collection = ({ collection, refresh, API_BASE, showToast }) => {
   const handleDelete = async (id) => {
@@ -32,8 +33,8 @@ const Collection = ({ collection, refresh, API_BASE, showToast }) => {
                 </div>
               ))}
             </div>
-            <div className="answer-text">
-              {qa.answer}
+            <div className="answer-text markdown-content">
+              <ReactMarkdown>{qa.answer}</ReactMarkdown>
             </div>
             <button 
               className="delete-btn" 
