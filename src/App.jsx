@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { BookOpen, PlusCircle, MessageSquare, Download } from 'lucide-react';
 import axios from 'axios';
 import Collection from './components/Collection';
@@ -10,23 +11,7 @@ const API_BASE = import.meta.env.DEV
   : 'https://interview-rag-backend.onrender.com/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('collection');
-  const [collection, setCollection] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-
-  const fetchCollection = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/qa`);
-      setCollection(res.data);
-    } catch (err) {
-      console.error("Failed to fetch collection:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchCollection();
-  }, []);
 
   const showToast = (message) => {
     setToast(message);
@@ -52,57 +37,62 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <div className="sidebar">
-        <div className="brand">
-          <BookOpen size={28} color="#58a6ff" />
-          InterviewRAG
-        </div>
-        
-        <div 
-          className={`nav-item ${activeTab === 'collection' ? 'active' : ''}`}
-          onClick={() => setActiveTab('collection')}
-        >
-          <BookOpen size={20} />
-          Collection
-        </div>
-        
-        <div 
-          className={`nav-item ${activeTab === 'add' ? 'active' : ''}`}
-          onClick={() => setActiveTab('add')}
-        >
-          <PlusCircle size={20} />
-          Add Q&A
-        </div>
-        
-        <div 
-          className={`nav-item ${activeTab === 'chat' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chat')}
-        >
-          <MessageSquare size={20} />
-          Interview AI
-        </div>
+    <BrowserRouter>
+      <div className="app-container">
+        <div className="sidebar">
+          <div className="brand">
+            <BookOpen size={28} color="#58a6ff" />
+            InterviewRAG
+          </div>
+          
+          <NavLink 
+            to="/collection"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          >
+            <BookOpen size={20} />
+            Collection
+          </NavLink>
+          
+          <NavLink 
+            to="/add"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          >
+            <PlusCircle size={20} />
+            Add Q&A
+          </NavLink>
+          
+          <NavLink 
+            to="/chat"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+          >
+            <MessageSquare size={20} />
+            Interview AI
+          </NavLink>
 
-        <div style={{ marginTop: 'auto' }}>
-          <div className="nav-item" onClick={handleDownloadPDF}>
-            <Download size={20} />
-            Export PDF
+          <div style={{ marginTop: 'auto' }}>
+            <div className="nav-item" onClick={handleDownloadPDF}>
+              <Download size={20} />
+              Export PDF
+            </div>
           </div>
         </div>
-      </div>
 
-      <div className="main-content">
-        {activeTab === 'collection' && <Collection collection={collection} refresh={fetchCollection} API_BASE={API_BASE} showToast={showToast} />}
-        {activeTab === 'add' && <AddQA API_BASE={API_BASE} refresh={fetchCollection} showToast={showToast} setActiveTab={setActiveTab} />}
-        {activeTab === 'chat' && <Chatbot API_BASE={API_BASE} />}
-      </div>
-
-      {toast && (
-        <div className="toast">
-          {toast}
+        <div className="main-content">
+          <Routes>
+            <Route path="/" element={<Navigate to="/collection" replace />} />
+            <Route path="/collection" element={<Collection API_BASE={API_BASE} showToast={showToast} />} />
+            <Route path="/add" element={<AddQA API_BASE={API_BASE} showToast={showToast} />} />
+            <Route path="/chat" element={<Chatbot API_BASE={API_BASE} />} />
+          </Routes>
         </div>
-      )}
-    </div>
+
+        {toast && (
+          <div className="toast">
+            {toast}
+          </div>
+        )}
+      </div>
+    </BrowserRouter>
   );
 }
 

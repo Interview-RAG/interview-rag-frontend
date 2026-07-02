@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
-const Collection = ({ collection, refresh, API_BASE, showToast }) => {
+const Collection = ({ API_BASE, showToast }) => {
+  const [collection, setCollection] = useState([]);
+
+  const fetchCollection = async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/qa`);
+      setCollection(res.data);
+    } catch (err) {
+      console.error("Failed to fetch collection:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchCollection();
+  }, []);
+
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this Q&A?")) return;
     try {
       await axios.delete(`${API_BASE}/qa/${id}`);
       if (showToast) showToast("Deleted successfully");
-      refresh();
+      fetchCollection();
     } catch (err) {
       console.error(err);
       if (showToast) showToast("Error deleting Q&A");

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Send, Upload } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const AddQA = ({ API_BASE, refresh, showToast, setActiveTab }) => {
+const AddQA = ({ API_BASE, showToast }) => {
+  const navigate = useNavigate();
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,8 +32,7 @@ const AddQA = ({ API_BASE, refresh, showToast, setActiveTab }) => {
       });
       showToast(res.data.message);
       if (res.data.added > 0) {
-        refresh();
-        setActiveTab('collection');
+        navigate('/collection');
       }
       setPdfFile(null);
       // reset file input
@@ -82,12 +83,11 @@ const AddQA = ({ API_BASE, refresh, showToast, setActiveTab }) => {
         answer: a
       });
       showToast(res.data.message);
-      refresh();
       setQuestion('');
       setAnswer('');
       setShowGenerateModal(false);
       setGeneratedAnswer('');
-      setActiveTab('collection');
+      navigate('/collection');
     } catch (err) {
       console.error("Error adding Q&A:", err);
       showToast("Failed to add Q&A");
