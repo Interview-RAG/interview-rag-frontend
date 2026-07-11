@@ -27,7 +27,7 @@ const AddQA = ({ API_BASE, showToast }) => {
     formData.append('file', pdfFile);
     
     try {
-      const res = await axios.post(`${API_BASE}/qa/upload-pdf`, formData, {
+      const res = await axios.post(`${API_BASE}/qa/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       showToast(res.data.message);
@@ -39,7 +39,7 @@ const AddQA = ({ API_BASE, showToast }) => {
       document.getElementById('pdf-upload-input').value = '';
     } catch (err) {
       console.error("Error uploading PDF:", err);
-      showToast(err.response?.data?.detail || "Failed to upload PDF");
+      showToast(err.response?.data?.detail || "Failed to upload file");
     } finally {
       setPdfLoading(false);
     }
@@ -53,7 +53,7 @@ const AddQA = ({ API_BASE, showToast }) => {
       setShowGenerateModal(true);
     } catch (err) {
       console.error("Error generating answer:", err);
-      showToast("Failed to generate answer");
+      showToast(err.response?.data?.detail || "Failed to generate answer");
     } finally {
       setGenerating(false);
     }
@@ -90,7 +90,7 @@ const AddQA = ({ API_BASE, showToast }) => {
       navigate('/collection');
     } catch (err) {
       console.error("Error adding Q&A:", err);
-      showToast("Failed to add Q&A");
+      showToast(err.response?.data?.detail || "Failed to add Q&A");
     } finally {
       setLoading(false);
     }
@@ -100,14 +100,14 @@ const AddQA = ({ API_BASE, showToast }) => {
     <div>
       <div className="page-title">Add Daily Interview Q&A</div>
       
-      {/* PDF Upload Section */}
+      {/* Upload Section */}
       <div className="glass-panel" style={{ padding: '32px', maxWidth: '800px', marginBottom: '24px' }}>
-        <h3 style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-primary)' }}>Bulk Upload via PDF</h3>
+        <h3 style={{ marginTop: 0, marginBottom: '16px', color: 'var(--text-primary)' }}>Bulk Upload (PDF & Images)</h3>
         <form onSubmit={handlePdfUpload} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <input 
             id="pdf-upload-input"
             type="file" 
-            accept="application/pdf"
+            accept="application/pdf, image/png, image/jpeg, image/webp"
             onChange={(e) => setPdfFile(e.target.files[0])}
             disabled={pdfLoading}
             className="form-input"
