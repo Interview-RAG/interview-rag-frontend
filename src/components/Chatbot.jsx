@@ -96,7 +96,9 @@ const Chatbot = ({ API_BASE }) => {
   };
 
   const scrollToBottom = () => {
-    endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setTimeout(() => {
+      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
   };
 
   useEffect(() => {
@@ -124,10 +126,13 @@ const Chatbot = ({ API_BASE }) => {
     setCurrentTool(null);
 
     try {
+      const token = localStorage.getItem('auth_token');
+
       const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ query: userMessage, session_id: activeSession.id })
       });
