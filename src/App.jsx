@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
-import { BookOpen, PlusCircle, MessageSquare, Download, LogOut, UserMinus } from 'lucide-react';
+import { useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Collection from './components/Collection';
-import AddQA from './components/AddQA';
 import Chatbot from './components/Chatbot';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SessionProvider } from './contexts/SessionContext';
+import Sidebar from './components/Sidebar';
+import AddDrawer from './components/AddDrawer';
 
 const API_BASE = import.meta.env.DEV 
   ? 'http://localhost:8000/api' 
@@ -23,79 +24,12 @@ axios.interceptors.request.use((config) => {
   return config;
 });
 
-// Sidebar component extracted to use AuthContext
-const Sidebar = ({ handleDownloadPDF }) => {
-  const { user, signOut } = useAuth();
-  const navigate = useNavigate();
+const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
 
-  if (!user) return null; // Don't show sidebar if not logged in
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/login');
-  };
-
-  const handleDeleteAccount = async () => {
-    if (window.confirm("Are you sure you want to permanently delete your account? This action cannot be undone.")) {
-      try {
-        await axios.delete(`${API_BASE}/user`);
-        await signOut();
-        navigate('/login');
-      } catch (err) {
-        console.error("Failed to delete account", err);
-        alert("Failed to delete account. Please try again.");
-      }
-    }
-  };
-
-
-  return (
-    <div className="sidebar">
-      <div className="brand">
-        <BookOpen size={28} color="#58a6ff" />
-        InterviewRAG
-      </div>
-      
-      <NavLink to="/collection" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <BookOpen size={20} />
-        Collection
-      </NavLink>
-      
-      <NavLink to="/add" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <PlusCircle size={20} />
-        Add Q&A
-      </NavLink>
-      
-      <NavLink to="/chat" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-        <MessageSquare size={20} />
-        Interview AI
-      </NavLink>
-
-      <div style={{ marginTop: 'auto' }}>
-        <div className="nav-item" onClick={handleDownloadPDF}>
-          <Download size={20} />
-          Export PDF
-        </div>
-        <div className="nav-item" onClick={handleLogout} style={{ marginTop: '10px', color: '#f85149' }}>
-          <LogOut size={20} />
-          Logout
-        </div>
-        <div className="nav-item" onClick={handleDeleteAccount} style={{ marginTop: '10px', color: '#ff8888', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
-          <UserMinus size={20} />
-          Delete Account
-        </div>
-      </div>
-    </div>
-  );
-};
-
-function App() {
-  const [toast, setToast] = useState(null);
-
-  const showToast = (message) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 3000);
-  };
+function AppShell({ showToast, API_BASE }) {
+  const { user } = useAuth();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleDownloadPDF = async () => {
     try {
@@ -116,33 +50,62 @@ function App() {
   };
 
   return (
+    <div style={bodyFont} className="h-screen w-full flex bg-[#FAFAF8]">
+      <Sidebar 
+        onAddClick={() => setDrawerOpen(true)} 
+        handleDownloadPDF={handleDownloadPDF} 
+        API_BASE={API_BASE}
+      />
+
+      <main className="flex-1 min-w-0 bg-[#FAFAF8]">
+        <Routes>
+          <Route path="/collection" element={<Collection API_BASE={API_BASE} showToast={showToast} refreshKey={refreshKey} onAddClick={() => setDrawerOpen(true)} />} />
+          <Route path="/chat" element={<Chatbot API_BASE={API_BASE} showToast={showToast} />} />
+          <Route path="*" element={<Navigate to="/collection" replace />} />
+        </Routes>
+      </main>
+
+      {user && (
+        <AddDrawer 
+          open={drawerOpen} 
+          onClose={() => setDrawerOpen(false)} 
+          API_BASE={API_BASE}
+          showToast={showToast}
+          onAdded={() => setRefreshKey(prev => prev + 1)}
+        />
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="app-container">
-          <Sidebar handleDownloadPDF={handleDownloadPDF} />
-
-          <div className="main-content">
-            <Routes>
-              {/* Public Routes */}
-              <Route path="/login" element={<Login showToast={showToast} />} />
-              <Route path="/signup" element={<Signup showToast={showToast} />} />
-              
-              {/* Protected Routes */}
-              <Route path="/collection" element={<ProtectedRoute><Collection API_BASE={API_BASE} showToast={showToast} /></ProtectedRoute>} />
-              <Route path="/add" element={<ProtectedRoute><AddQA API_BASE={API_BASE} showToast={showToast} /></ProtectedRoute>} />
-              <Route path="/chat" element={<ProtectedRoute><Chatbot API_BASE={API_BASE} /></ProtectedRoute>} />
-              
-              {/* Default Redirect */}
-              <Route path="/" element={<Navigate to="/collection" replace />} />
-            </Routes>
-          </div>
-
+        <SessionProvider API_BASE={API_BASE}>
+          <Routes>
+            <Route path="/login" element={<Login showToast={showToast} />} />
+            <Route path="/signup" element={<Signup showToast={showToast} />} />
+            
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <AppShell showToast={showToast} API_BASE={API_BASE} />
+              </ProtectedRoute>
+            } />
+          </Routes>
           {toast && (
-            <div className="toast">
+            <div className="fixed bottom-6 right-6 bg-[#1F6E4A] text-white px-6 py-4 rounded-[12px] shadow-lg z-[100] animate-[slideUp_0.3s_ease_forwards]">
               {toast}
             </div>
           )}
-        </div>
+        </SessionProvider>
       </BrowserRouter>
     </AuthProvider>
   );
