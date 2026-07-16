@@ -92,6 +92,7 @@ export default function Collection({ API_BASE, showToast, refreshKey, onAddClick
   };
 
   useEffect(() => {
+    document.title = "Collections - PrepAI";
     fetchQAs();
   }, [refreshKey]);
 

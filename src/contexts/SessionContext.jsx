@@ -43,7 +43,7 @@ export const SessionProvider = ({ children, API_BASE }) => {
       const res = await axios.get(`${API_BASE}/chat/sessions/${session.id}/messages`);
       const formatted = res.data.map(m => ({ role: m.role === 'user' ? 'user' : 'bot', text: m.content }));
       if (formatted.length === 0) {
-        formatted.push({ role: 'bot', text: 'Hello! I am Interview AI, your personal preparation assistant. Ask me anything!' });
+        formatted.push({ role: 'bot', text: 'Hello! I am PrepAI, your personal preparation assistant. Ask me anything!' });
       }
       setMessages(formatted);
     } catch (err) {
@@ -56,7 +56,7 @@ export const SessionProvider = ({ children, API_BASE }) => {
       const res = await axios.post(`${API_BASE}/chat/sessions`, { title: "New Chat" });
       setSessions([res.data, ...sessions]);
       setActiveSession(res.data);
-      setMessages([{ role: 'bot', text: 'Hello! I am Interview AI, your personal preparation assistant. Ask me anything!' }]);
+      setMessages([{ role: 'bot', text: 'Hello! I am PrepAI, your personal preparation assistant. Ask me anything!' }]);
     } catch (err) {
       console.error("Failed to create session", err);
     }

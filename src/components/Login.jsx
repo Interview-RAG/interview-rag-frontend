@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,10 @@ const Login = ({ showToast }) => {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  useEffect(() => {
+    document.title = "PrepAI";
+  }, []);
+
   const { signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -46,7 +50,7 @@ const Login = ({ showToast }) => {
               <Sparkles size={16} className="text-white" />
             </div>
             <span style={displayFont} className="text-white text-[18px] font-semibold">
-              InterviewRAG
+              PrepAI
             </span>
           </div>
 
@@ -54,7 +58,7 @@ const Login = ({ showToast }) => {
             Master your narrative. <span className="text-[#A6A399]">Own the interview.</span>
           </h1>
           <p style={bodyFont} className="text-[#A6A399] text-[15px] leading-relaxed mt-6 max-w-sm">
-            Grounded in your personal knowledge base, InterviewRAG helps you craft, refine, and practice your unique professional stories.
+            Grounded in your personal knowledge base, PrepAI helps you craft, refine, and practice your unique professional stories.
           </p>
         </div>
         
@@ -76,7 +80,7 @@ const Login = ({ showToast }) => {
               <Sparkles size={16} className="text-white" />
             </div>
             <span style={displayFont} className="text-[#17170F] text-[18px] font-semibold">
-              InterviewRAG
+              PrepAI
             </span>
           </div>
 

@@ -1,4 +1,4 @@
-# InterviewRAG System
+# PrepAI System
 
 A smart, automated interview preparation application designed to collect, refine, and query daily interview questions and answers. It features an intelligent RAG (Retrieval-Augmented Generation) chatbot, dynamic deduplication, smart AI answer generation, and bulk PDF uploads.
 

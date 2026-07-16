@@ -64,7 +64,7 @@ export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
           <Sparkles size={14} className="text-white" />
         </div>
         <span style={displayFont} className="text-white text-[15px] font-semibold">
-          InterviewRAG
+          PrepAI
         </span>
       </div>
 

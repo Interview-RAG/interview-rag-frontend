@@ -38,7 +38,7 @@ function AppShell({ showToast, API_BASE }) {
       const url = window.URL.createObjectURL(new Blob([res.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', 'Interview_Collection.pdf');
+      link.setAttribute('download', 'PrepAI_Collection.pdf');
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -12,6 +12,10 @@ const Signup = ({ showToast }) => {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  useEffect(() => {
+    document.title = "PrepAI";
+  }, []);
+
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -51,7 +55,7 @@ const Signup = ({ showToast }) => {
               <Sparkles size={16} className="text-white" />
             </div>
             <span style={displayFont} className="text-white text-[18px] font-semibold">
-              InterviewRAG
+              PrepAI
             </span>
           </div>
 
@@ -81,7 +85,7 @@ const Signup = ({ showToast }) => {
               <Sparkles size={16} className="text-white" />
             </div>
             <span style={displayFont} className="text-[#17170F] text-[18px] font-semibold">
-              InterviewRAG
+              PrepAI
             </span>
           </div>
 

@@ -81,6 +81,10 @@ export default function Chatbot({ API_BASE, showToast }) {
     scrollToBottom();
   }, [messages, currentTool]);
 
+  useEffect(() => {
+    document.title = activeSession ? `${activeSession.title} - PrepAI` : "New Chat - PrepAI";
+  }, [activeSession]);
+
   const getToolDisplayName = (toolName) => {
     switch(toolName) {
       case 'search_knowledge_base': return 'Searching knowledge base';
@@ -230,7 +234,7 @@ export default function Chatbot({ API_BASE, showToast }) {
               onClick={startEditing}
               title="Click to rename"
             >
-              {activeSession ? activeSession.title : "InterviewRAG"}
+              {activeSession ? activeSession.title : "PrepAI"}
             </h1>
           )}
           <p style={bodyFont} className="text-[#6E6C63] text-[12.5px] mt-0.5">
