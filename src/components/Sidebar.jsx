@@ -59,9 +59,9 @@ export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
       style={bodyFont}
       className="w-[240px] shrink-0 bg-[#17170F] flex flex-col py-5 px-3 h-screen"
     >
-      <div className="flex items-center gap-2 px-2 mb-8">
-        <div className="w-7 h-7 rounded-[7px] bg-[#1F6E4A] flex items-center justify-center">
-          <Sparkles size={14} className="text-white" />
+      <div className="flex items-center gap-2 px-3 mb-8">
+        <div className="w-7 h-7 rounded-[7px] overflow-hidden shrink-0">
+          <img src="/favicon.png" alt="PrepAI" className="w-full h-full object-cover" />
         </div>
         <span style={displayFont} className="text-white text-[15px] font-semibold">
           PrepAI
@@ -149,7 +149,7 @@ export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
             ))}
             {filtered.length === 0 && (
               <p className="text-[#6E6C63] text-[11px] px-2.5 py-4 text-center">
-                No chats match "{query}"
+                {sessions.length === 0 ? "No chats yet" : `No chats match "${query}"`}
               </p>
             )}
           </nav>

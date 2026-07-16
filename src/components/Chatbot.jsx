@@ -42,8 +42,8 @@ function ChatMessage({ msg, userInitials }) {
 
   return (
     <div className="flex gap-3 animate-[fadeIn_0.3s_ease]">
-      <div className="w-8 h-8 rounded-full bg-[#F1F0EB] border border-[#E7E5DF] flex items-center justify-center shrink-0">
-        <Sparkles size={13} className="text-[#1F6E4A]" />
+      <div className="w-8 h-8 rounded-full border border-[#E7E5DF] shrink-0 overflow-hidden">
+        <img src="/favicon.png" alt="AI" className="w-full h-full object-cover" />
       </div>
       <div
         style={bodyFont}
@@ -234,7 +234,7 @@ export default function Chatbot({ API_BASE, showToast }) {
               onClick={startEditing}
               title="Click to rename"
             >
-              {activeSession ? activeSession.title : "PrepAI"}
+              {activeSession ? activeSession.title : "New Chat"}
             </h1>
           )}
           <p style={bodyFont} className="text-[#6E6C63] text-[12.5px] mt-0.5">
@@ -253,8 +253,8 @@ export default function Chatbot({ API_BASE, showToast }) {
       <div className="flex-1 overflow-y-auto px-8 py-7 flex flex-col gap-5 max-w-3xl w-full mx-auto relative">
         {isNew && messages.length === 1 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-16 animate-[fadeIn_0.5s_ease]">
-            <div className="w-10 h-10 rounded-full bg-[#F1F0EB] border border-[#E7E5DF] flex items-center justify-center mb-1">
-              <Sparkles size={16} className="text-[#1F6E4A]" />
+            <div className="w-10 h-10 rounded-full border border-[#E7E5DF] mb-1 overflow-hidden shrink-0">
+              <img src="/favicon.png" alt="AI" className="w-full h-full object-cover" />
             </div>
             <p style={displayFont} className="text-[#17170F] text-[15px] font-medium">
               Start a new prep session

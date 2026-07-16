@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Lock, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
+import FeatureShowcase from './FeatureShowcase';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -46,29 +47,20 @@ const Login = ({ showToast }) => {
         
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-16">
-            <div className="w-8 h-8 rounded-[8px] bg-[#1F6E4A] flex items-center justify-center">
-              <Sparkles size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
+              <img src="/favicon.png" alt="PrepAI" className="w-full h-full object-cover" />
             </div>
             <span style={displayFont} className="text-white text-[18px] font-semibold">
               PrepAI
             </span>
           </div>
 
-          <h1 style={displayFont} className="text-white text-5xl leading-[1.1] font-medium max-w-md">
-            Master your narrative. <span className="text-[#A6A399]">Own the interview.</span>
+          <h1 style={displayFont} className="text-white text-4xl leading-[1.1] font-medium max-w-md">
+            Master your narrative. <br/><span className="text-[#A6A399]">Own the interview.</span>
           </h1>
-          <p style={bodyFont} className="text-[#A6A399] text-[15px] leading-relaxed mt-6 max-w-sm">
-            Grounded in your personal knowledge base, PrepAI helps you craft, refine, and practice your unique professional stories.
-          </p>
-        </div>
-        
-        <div className="relative z-10 flex items-center gap-3">
-           <div className="flex -space-x-2">
-             <div className="w-8 h-8 rounded-full border-2 border-[#17170F] bg-[#1F6E4A]"></div>
-             <div className="w-8 h-8 rounded-full border-2 border-[#17170F] bg-[#E7E5DF]"></div>
-             <div className="w-8 h-8 rounded-full border-2 border-[#17170F] bg-[#C97A2B]"></div>
-           </div>
-           <span style={bodyFont} className="text-[#6E6C63] text-[12px] font-medium">Join 2,000+ candidates</span>
+
+          {/* Interactive Feature Showcase */}
+          <FeatureShowcase />
         </div>
       </div>
 
@@ -76,8 +68,8 @@ const Login = ({ showToast }) => {
       <div className="flex-1 flex items-center justify-center p-8 bg-white">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex items-center gap-2 mb-10">
-            <div className="w-8 h-8 rounded-[8px] bg-[#1F6E4A] flex items-center justify-center">
-              <Sparkles size={16} className="text-white" />
+            <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
+              <img src="/favicon.png" alt="PrepAI" className="w-full h-full object-cover" />
             </div>
             <span style={displayFont} className="text-[#17170F] text-[18px] font-semibold">
               PrepAI
@@ -93,7 +85,7 @@ const Login = ({ showToast }) => {
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <form onSubmit={handleLogin} className="flex flex-col gap-4" autoComplete="off">
             <div>
               <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
                 Email
@@ -105,6 +97,7 @@ const Login = ({ showToast }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
+                  autoComplete="off"
                   style={bodyFont}
                   className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
                 />
@@ -127,6 +120,7 @@ const Login = ({ showToast }) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  autoComplete="new-password"
                   style={bodyFont}
                   className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-10 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
                 />
