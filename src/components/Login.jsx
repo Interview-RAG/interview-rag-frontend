@@ -3,6 +3,7 @@ import { Mail, Lock, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
 import FeatureShowcase from './FeatureShowcase';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 const displayFont = { fontFamily: "'Fraunces', serif" };
 const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
@@ -12,6 +13,7 @@ const Login = ({ showToast }) => {
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showForgotModal, setShowForgotModal] = useState(false);
   
   useEffect(() => {
     document.title = "PrepAI";
@@ -39,7 +41,8 @@ const Login = ({ showToast }) => {
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#FAFAF8]">
+    <>
+    <div className="flex w-full h-screen bg-[#FAFAF8] overflow-hidden">
       {/* Left Branding Panel */}
       <div className="hidden lg:flex flex-1 bg-[#17170F] flex-col justify-between p-12 relative overflow-hidden">
         {/* Subtle decorative background */}
@@ -109,9 +112,9 @@ const Login = ({ showToast }) => {
                 <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold">
                   Password
                 </label>
-                <Link to="/login" style={bodyFont} className="text-[#1F6E4A] text-[12px] hover:underline">
+                <button type="button" onClick={() => setShowForgotModal(true)} style={bodyFont} className="text-[#1F6E4A] text-[12px] hover:underline">
                   Forgot password?
-                </Link>
+                </button>
               </div>
               <div className="relative">
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
@@ -145,14 +148,18 @@ const Login = ({ showToast }) => {
           </form>
 
           <p style={bodyFont} className="text-center text-[#6E6C63] text-[13px] mt-8">
-            Don't have an account?{' '}
-            <Link to="/signup" className="text-[#17170F] font-semibold hover:underline">
-              Create one
-            </Link>
+            Don't have an account? <Link to="/signup" className="text-[#17170F] font-bold hover:underline">Create one</Link>
           </p>
         </div>
       </div>
     </div>
+    
+    <ForgotPasswordModal 
+      isOpen={showForgotModal} 
+      onClose={() => setShowForgotModal(false)} 
+      showToast={showToast} 
+    />
+    </>
   );
 };
 
