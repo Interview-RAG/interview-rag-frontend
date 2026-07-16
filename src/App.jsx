@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SessionProvider } from './contexts/SessionContext';
 import Sidebar from './components/Sidebar';
 import AddDrawer from './components/AddDrawer';
+import Docs from './components/Docs';
 
 const API_BASE = import.meta.env.DEV 
   ? 'http://localhost:8000/api' 
@@ -61,6 +62,7 @@ function AppShell({ showToast, API_BASE }) {
         <Routes>
           <Route path="/collection" element={<Collection API_BASE={API_BASE} showToast={showToast} refreshKey={refreshKey} onAddClick={() => setDrawerOpen(true)} />} />
           <Route path="/chat" element={<Chatbot API_BASE={API_BASE} showToast={showToast} />} />
+          <Route path="/docs" element={<Docs />} />
           <Route path="*" element={<Navigate to="/collection" replace />} />
         </Routes>
       </main>

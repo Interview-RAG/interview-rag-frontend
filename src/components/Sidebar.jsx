@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MessageSquare, LayoutGrid, Plus, Search, Trash2, Sparkles, Settings, LogOut, Download, UserMinus } from "lucide-react";
+import { MessageSquare, LayoutGrid, Plus, Search, Trash2, Sparkles, Settings, LogOut, Download, UserMinus, BookOpen } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSession } from "../contexts/SessionContext";
@@ -172,7 +172,10 @@ export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
            <button onClick={handleDownloadPDF} title="Export PDF" className="p-1.5 rounded-[5px] text-[#A6A399] hover:bg-[#2A2A20] hover:text-white transition-colors">
               <Download size={14} />
            </button>
-           <button onClick={handleLogout} title="Logout" className="p-1.5 rounded-[5px] text-[#A6A399] hover:bg-[#2A2A20] hover:text-[#D97757] transition-colors ml-auto">
+           <button onClick={() => navigate('/docs')} title="Documentation" className="p-1.5 rounded-[5px] text-[#A6A399] hover:bg-[#2A2A20] hover:text-white transition-colors ml-auto">
+              <BookOpen size={14} />
+           </button>
+           <button onClick={handleLogout} title="Logout" className="p-1.5 rounded-[5px] text-[#A6A399] hover:bg-[#2A2A20] hover:text-[#D97757] transition-colors">
               <LogOut size={14} />
            </button>
            <button onClick={handleDeleteAccount} title="Delete Account" className="p-1.5 rounded-[5px] text-[#A6A399] hover:bg-[#2A2A20] hover:text-[#D97757] transition-colors">
