@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { MessageSquare, LayoutGrid, Plus, Search, Trash2, Sparkles, Settings, LogOut, Download, UserMinus, BookOpen } from "lucide-react";
+import { MessageSquare, LayoutGrid, Plus, Search, Trash2, Sparkles, Settings, LogOut, Download, UserMinus, BookOpen, FileText } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useSession } from "../contexts/SessionContext";
@@ -11,6 +11,7 @@ const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
 const NAV = [
   { id: "collection", label: "Collections", icon: LayoutGrid, path: "/collection" },
   { id: "chat", label: "Chat", icon: MessageSquare, path: "/chat" },
+  { id: "resume", label: "Resume Hub", icon: FileText, path: "/resume" },
 ];
 
 export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
@@ -29,7 +30,7 @@ export default function Sidebar({ onAddClick, handleDownloadPDF, API_BASE }) {
 
   if (!user) return null;
 
-  const currentView = location.pathname.includes("/chat") ? "chat" : "collection";
+  const currentView = location.pathname.includes("/chat") ? "chat" : location.pathname.includes("/resume") ? "resume" : "collection";
   const showSessions = currentView === "chat";
 
   const filtered = sessions.filter((s) =>

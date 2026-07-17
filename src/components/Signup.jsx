@@ -8,8 +8,10 @@ const displayFont = { fontFamily: "'Fraunces', serif" };
 const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
 
 const Signup = ({ showToast }) => {
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -17,7 +19,7 @@ const Signup = ({ showToast }) => {
     document.title = "PrepAI";
   }, []);
 
-  const { signUp } = useAuth();
+  const { signUp, verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
 
   const handleSignup = async (e) => {
@@ -33,10 +35,42 @@ const Signup = ({ showToast }) => {
     setLoading(true);
     try {
       await signUp(email, password);
-      showToast("Account created successfully!");
+      showToast("Verification code sent to your email!");
+      setStep(2);
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Failed to create account");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    if (!otp) {
+      showToast("Please enter the verification code");
+      return;
+    }
+    setLoading(true);
+    try {
+      await verifyOtp(email, otp);
+      showToast("Account verified successfully!");
       navigate('/collection');
     } catch (err) {
-      showToast("Failed to create account");
+      showToast(err.response?.data?.detail || "Invalid or expired code");
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setLoading(true);
+    try {
+      await resendOtp(email, password);
+      showToast("Verification code resent!");
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Failed to resend code");
       console.error(err);
     } finally {
       setLoading(false);
@@ -90,59 +124,100 @@ const Signup = ({ showToast }) => {
             </p>
           </div>
 
-          <form onSubmit={handleSignup} className="flex flex-col gap-4" autoComplete="off">
-            <div>
-              <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-                Email
-              </label>
-              <div className="relative">
-                <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
+          {step === 1 ? (
+            <form onSubmit={handleSignup} className="flex flex-col gap-4" autoComplete="off">
+              <div>
+                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
+                  Email
+                </label>
+                <div className="relative">
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="off"
+                    style={bodyFont}
+                    className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                    style={bodyFont}
+                    className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-10 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPw(p => !p)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A6A399] hover:text-[#6E6C63] transition-colors"
+                  >
+                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                style={bodyFont}
+                className="mt-4 w-full flex items-center justify-center gap-2 bg-[#1F6E4A] text-white text-[14px] font-semibold rounded-[8px] py-3.5 transition-all duration-150 active:scale-[0.98] hover:bg-[#195C3D] disabled:opacity-70 disabled:active:scale-100"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerify} className="flex flex-col gap-4">
+              <div className="mb-2">
+                <p style={bodyFont} className="text-[14px] text-[#17170F] mb-4">
+                  We've sent a 6-digit code to <span className="font-semibold">{email}</span>.
+                </p>
+                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
+                  Verification Code
+                </label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="off"
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  placeholder="123456"
+                  maxLength={6}
                   style={bodyFont}
-                  className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
+                  className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] px-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors text-center tracking-widest font-semibold"
                 />
               </div>
-            </div>
 
-            <div>
-              <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-                Password
-              </label>
-              <div className="relative">
-                <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
-                <input
-                  type={showPw ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  style={bodyFont}
-                  className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-10 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPw(p => !p)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A6A399] hover:text-[#6E6C63] transition-colors"
-                >
-                  {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </div>
+              <button
+                type="submit"
+                disabled={loading || otp.length < 6}
+                style={bodyFont}
+                className="w-full flex items-center justify-center gap-2 bg-[#1F6E4A] text-white text-[14px] font-semibold rounded-[8px] py-3.5 transition-all duration-150 active:scale-[0.98] hover:bg-[#195C3D] disabled:opacity-70 disabled:active:scale-100"
+              >
+                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Verify Code'}
+              </button>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={bodyFont}
-              className="mt-4 w-full flex items-center justify-center gap-2 bg-[#1F6E4A] text-white text-[14px] font-semibold rounded-[8px] py-3.5 transition-all duration-150 active:scale-[0.98] hover:bg-[#195C3D] disabled:opacity-70 disabled:active:scale-100"
-            >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={loading}
+                style={bodyFont}
+                className="text-[#6E6C63] text-[13px] hover:text-[#17170F] mt-2 transition-colors disabled:opacity-50"
+              >
+                Didn't receive it? Resend code
+              </button>
+            </form>
+          )}
 
           <p style={bodyFont} className="text-center text-[#6E6C63] text-[13px] mt-8">
             Already have an account?{' '}
