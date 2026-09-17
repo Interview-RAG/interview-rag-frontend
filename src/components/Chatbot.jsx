@@ -246,7 +246,7 @@ export default function Chatbot({ API_BASE, showToast }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ padding: '44px 56px 0', flexShrink: 0 }}>
+      <div className="chat-head">
         <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>
           {meta.kicker}
         </p>
@@ -267,13 +267,13 @@ export default function Chatbot({ API_BASE, showToast }) {
           />
         ) : (
           <h1
+            className="chat-title"
             onClick={isNew ? undefined : startEditing}
             title={isNew ? undefined : 'Click to rename'}
             style={{
               fontSize: 'clamp(28px,3vw,38px)', lineHeight: 1.05, letterSpacing: '-.03em',
               margin: '0 0 18px', maxWidth: '24ch',
               cursor: isNew ? 'default' : 'text',
-              paddingRight: 180,
             }}
           >
             {headline}
@@ -329,7 +329,7 @@ export default function Chatbot({ API_BASE, showToast }) {
         </div>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 56px 24px' }}>
+      <div className="chat-body">
         <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 22 }}>
           {messages.map((m, idx) => (
             <Message key={idx} msg={m} initials={initials} />
@@ -354,7 +354,7 @@ export default function Chatbot({ API_BASE, showToast }) {
         </div>
       </div>
 
-      <div style={{ padding: '12px 56px 28px', flexShrink: 0 }}>
+      <div className="chat-foot">
         <form
           onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
           style={{

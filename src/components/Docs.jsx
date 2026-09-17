@@ -28,7 +28,7 @@ export default function Docs() {
   }, []);
 
   return (
-    <div style={{ padding: '56px 56px 72px', maxWidth: 760 }}>
+    <div className="screen" style={{ maxWidth: 760 }}>
       <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Documentation
       </p>

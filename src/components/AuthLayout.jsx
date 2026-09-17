@@ -4,16 +4,9 @@
  */
 export default function AuthLayout({ headline, children }) {
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        padding: 20,
-        display: 'grid',
-        gridTemplateColumns: 'minmax(0,1.15fr) minmax(0,1fr)',
-        gap: 20,
-      }}
-    >
+    <div className="auth-grid">
       <div
+        className="auth-hero"
         style={{
           background: 'var(--color-accent-100)',
           borderRadius: 32,
@@ -66,7 +59,18 @@ export default function AuthLayout({ headline, children }) {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24, gap: 28 }}>
+        {/* Shown only when the hero panel is hidden, so the brand survives on phones. */}
+        <div
+          className="auth-brand-mobile"
+          style={{
+            alignItems: 'center', gap: 10, alignSelf: 'flex-start',
+            fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 18,
+          }}
+        >
+          <span style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--color-accent)', display: 'inline-block' }} />
+          PrepAI
+        </div>
         <div
           style={{
             width: '100%', maxWidth: 400, background: 'var(--color-surface)',

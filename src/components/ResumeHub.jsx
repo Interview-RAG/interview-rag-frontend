@@ -123,7 +123,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
 
   if (!resume) {
     return (
-      <div style={{ padding: '56px 56px 72px', maxWidth: 1000 }}>
+      <div className="screen" style={{ maxWidth: 1000 }}>
         <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
           Resume Hub
         </p>
@@ -162,7 +162,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
   const certifications = resume.certifications || [];
 
   return (
-    <div style={{ padding: '56px 56px 72px', maxWidth: 1000 }}>
+    <div className="screen" style={{ maxWidth: 1000 }}>
       <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Resume Hub · parsed from your PDF
       </p>
@@ -197,7 +197,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
         <button className="btn btn-ghost" onClick={handleDelete}>Delete resume</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16, marginBottom: 56 }}>
+      <div className="split-2" style={{ marginBottom: 56 }}>
         <div style={{ background: 'var(--color-bg)', borderRadius: 24, padding: '28px 30px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 56, lineHeight: 1, letterSpacing: '-.03em' }}>
@@ -278,7 +278,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
           <h2 style={{ fontSize: 24, letterSpacing: '-.02em', margin: '0 0 24px' }}>Where you learned it</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 36, marginBottom: 56, maxWidth: 720 }}>
             {experience.map((e, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px minmax(0,1fr)', gap: 20 }}>
+              <div key={i} className="row-timeline">
                 <div className="text-muted" style={{ fontSize: 13, lineHeight: 1.5, paddingTop: 4 }}>
                   {[e.start_date, e.end_date].filter(Boolean).join(' – ')}
                 </div>
@@ -295,7 +295,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
             ))}
 
             {education.map((ed, i) => (
-              <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px minmax(0,1fr)', gap: 20 }}>
+              <div key={i} className="row-timeline">
                 <div className="text-muted" style={{ fontSize: 13, paddingTop: 4 }}>
                   {[ed.start_date, ed.end_date].filter(Boolean).join(' – ')}
                 </div>
@@ -323,7 +323,7 @@ export default function ResumeHub({ API_BASE, showToast }) {
           <p className="text-muted" style={{ fontSize: 14, margin: '0 0 20px' }}>
             Run a pressure test and the coach will interrogate one of these.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 16 }}>
+          <div className="projects-2">
             {projects.map((p, i) => (
               <div
                 key={i}

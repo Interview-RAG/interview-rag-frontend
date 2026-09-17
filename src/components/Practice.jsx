@@ -119,7 +119,7 @@ export default function Practice({ showToast }) {
   if (total === 0 || index >= total) {
     const done = total > 0;
     return (
-      <div style={{ padding: '56px 56px 72px', maxWidth: 860, margin: '0 auto' }}>
+      <div className="screen" style={{ maxWidth: 860, margin: '0 auto' }}>
         <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
           Practice
         </p>
@@ -149,7 +149,7 @@ export default function Practice({ showToast }) {
   const showGradeBtn = isType && !graded;
 
   return (
-    <div style={{ padding: '56px 56px 72px', maxWidth: 860, margin: '0 auto' }}>
+    <div className="screen" style={{ maxWidth: 860, margin: '0 auto' }}>
       <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Practice · card {index + 1} of {total}
       </p>

@@ -62,7 +62,7 @@ export default function Collection({ onAddClick }) {
 
   if (qas.length === 0) {
     return (
-      <div style={{ padding: '56px 56px 72px', maxWidth: 1040 }}>
+      <div className="screen" style={{ maxWidth: 1040 }}>
         <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
           Your collection · empty
         </p>
@@ -87,7 +87,7 @@ export default function Collection({ onAddClick }) {
     : showDue ? 'Not due yet — still worth a skim.' : 'Every pair here grounds the coach.';
 
   return (
-    <div style={{ padding: '56px 56px 72px', maxWidth: 1040 }}>
+    <div className="screen" style={{ maxWidth: 1040 }}>
       <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Your collection · {qas.length} {qas.length === 1 ? 'pair' : 'pairs'}
       </p>
@@ -144,14 +144,7 @@ export default function Collection({ onAddClick }) {
           <p className="text-muted" style={{ fontSize: 14, margin: '0 0 20px' }}>
             Spaced review says these are about to fade.
           </p>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)',
-              gap: 16,
-              marginBottom: 48,
-            }}
-          >
+          <div className="split-hero" style={{ marginBottom: 48 }}>
             <div
               onClick={() => setViewing(hero)}
               style={{
@@ -237,11 +230,10 @@ export default function Collection({ onAddClick }) {
           <div
             key={c.id}
             onClick={() => setViewing(c)}
+            className="row-3"
             style={{
               cursor: 'pointer', background: 'var(--color-bg)', borderRadius: 20,
-              padding: '22px 26px', display: 'grid',
-              gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1.4fr) auto',
-              gap: 24, alignItems: 'center', boxShadow: 'var(--shadow-sm)',
+              padding: '22px 26px', boxShadow: 'var(--shadow-sm)',
             }}
           >
             <div>
@@ -264,7 +256,7 @@ export default function Collection({ onAddClick }) {
             >
               {c.answer}
             </p>
-            <div className="text-muted" style={{ fontSize: 12, textAlign: 'right', whiteSpace: 'nowrap' }}>
+            <div className="text-muted row-3-meta" style={{ fontSize: 12 }}>
               Due {dueLabel(c)}
               <br />
               {c.review_count} reviews

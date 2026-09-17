@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
-import { Plus, Sun, Moon } from 'lucide-react';
+import { Plus, Sun, Moon, Menu } from 'lucide-react';
 
 import Collection from './components/Collection';
 import Practice from './components/Practice';
@@ -35,6 +35,8 @@ function AppShell({ showToast }) {
   const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Below 900px the sidebar is an off-canvas drawer; this is its open state.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleDownloadPDF = async () => {
     try {
@@ -57,37 +59,38 @@ function AppShell({ showToast }) {
 
   return (
     <>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '236px minmax(0,1fr)',
-          height: '100vh',
-          padding: 14,
-          gap: 14,
-          boxSizing: 'border-box',
-        }}
-      >
+      <div className="app-shell">
+        <div
+          className={`sidebar-backdrop${sidebarOpen ? ' open' : ''}`}
+          onClick={() => setSidebarOpen(false)}
+        />
         <Sidebar
           API_BASE={API_BASE}
           handleDownloadPDF={handleDownloadPDF}
           showToast={showToast}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
         />
 
         {/* Main sheet */}
-        <div
-          style={{
-            background: 'var(--color-surface)',
-            borderRadius: 28,
-            boxShadow: 'var(--shadow-sm)',
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-            minHeight: 0,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <div style={{ position: 'absolute', top: 18, right: 22, display: 'flex', gap: 8, zIndex: 5 }}>
+        <div className="sheet">
+          <div className="sheet-controls">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="btn btn-ghost sheet-menu"
+              title="Menu"
+              style={{
+                width: 40,
+                height: 40,
+                padding: 0,
+                justifyContent: 'center',
+                color: 'var(--color-text)',
+                background: 'var(--color-bg)',
+                marginRight: 'auto',
+              }}
+            >
+              <Menu size={18} />
+            </button>
             <button
               onClick={toggleTheme}
               className="btn btn-ghost"

@@ -29,9 +29,11 @@ const relativeWhen = (iso) => {
   return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-export default function Sidebar({ API_BASE, handleDownloadPDF, showToast }) {
+export default function Sidebar({ API_BASE, handleDownloadPDF, showToast, open = false, onClose }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  // On phones the sidebar is a drawer; picking anything should also close it.
+  const go = (path) => { navigate(path); onClose?.(); };
   const location = useLocation();
   const { sessions, activeSession, loadSession, createNewSession, deleteSession } = useSession();
   const { qas, dueCount, progress } = useCollection();
@@ -74,15 +76,7 @@ export default function Sidebar({ API_BASE, handleDownloadPDF, showToast }) {
     : dueCount > 0 ? `${dueCount} due today` : user.email;
 
   return (
-    <aside
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '22px 12px 14px',
-        minHeight: 0,
-        overflowY: 'auto',
-      }}
-    >
+    <aside className={`app-sidebar${open ? ' open' : ''}`}>
       <div
         style={{
           display: 'flex', alignItems: 'center', gap: 10, padding: '0 12px 24px',
@@ -100,7 +94,7 @@ export default function Sidebar({ API_BASE, handleDownloadPDF, showToast }) {
           return (
             <button
               key={n.id}
-              onClick={() => navigate(n.path)}
+              onClick={() => go(n.path)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 12,
                 padding: '10px 12px', borderRadius: 12,
@@ -149,7 +143,7 @@ export default function Sidebar({ API_BASE, handleDownloadPDF, showToast }) {
               return (
                 <button
                   key={s.id}
-                  onClick={() => loadSession(s)}
+                  onClick={() => { loadSession(s); onClose?.(); }}
                   className="group"
                   style={{
                     display: 'flex', alignItems: 'flex-start', gap: 6,
@@ -190,7 +184,7 @@ export default function Sidebar({ API_BASE, handleDownloadPDF, showToast }) {
       )}
 
       <div style={{ marginTop: 'auto', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <FooterButton icon={BookOpen} label="Documentation" onClick={() => navigate('/docs')} />
+        <FooterButton icon={BookOpen} label="Documentation" onClick={() => go('/docs')} />
         <FooterButton icon={Download} label="Export study guide" onClick={handleDownloadPDF} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 12px 4px' }}>

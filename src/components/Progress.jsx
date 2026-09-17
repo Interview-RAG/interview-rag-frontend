@@ -45,7 +45,7 @@ export default function Progress() {
     : '';
 
   return (
-    <div style={{ padding: '56px 56px 72px', maxWidth: 1000 }}>
+    <div className="screen" style={{ maxWidth: 1000 }}>
       <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
         Progress{weekLabel ? ` · week of ${weekLabel}` : ''}
       </p>
@@ -64,7 +64,7 @@ export default function Progress() {
         .{untouched > 0 && ` ${spell(untouched)} ${untouched === 1 ? 'skill' : 'skills'} on your resume still ${untouched === 1 ? 'has' : 'have'} no answers behind ${untouched === 1 ? 'it' : 'them'}.`}
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.3fr) minmax(0,1fr)', gap: 16, marginBottom: 56 }}>
+      <div className="split-wide" style={{ marginBottom: 56 }}>
         <div style={{ background: 'var(--color-bg)', borderRadius: 24, padding: '28px 30px', boxShadow: 'var(--shadow-sm)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
             <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 18, letterSpacing: '-.015em' }}>
@@ -72,7 +72,7 @@ export default function Progress() {
             </span>
             <span className="text-muted" style={{ fontSize: 12 }}>reviews per day</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(14, minmax(0,1fr))', gap: 6, alignItems: 'end', height: 110 }}>
+          <div className="bars-14">
             {bars.map((b) => (
               <div
                 key={b.date}
@@ -125,9 +125,9 @@ export default function Progress() {
               return (
                 <div
                   key={g.skill}
+                  className="row-gap"
                   style={{
-                    display: 'grid', gridTemplateColumns: '150px minmax(0,1fr) 60px auto',
-                    gap: 20, alignItems: 'center', padding: '14px 0',
+                    padding: '14px 0',
                     borderBottom: '1px solid var(--color-divider)',
                   }}
                 >
