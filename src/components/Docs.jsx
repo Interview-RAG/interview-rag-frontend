@@ -1,155 +1,97 @@
-import React, { useEffect } from 'react';
-import { BookOpen, Search, Brain, Save, FileText, Download, Sparkles, MessageSquare, Zap } from 'lucide-react';
+import { useEffect } from 'react';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+function Example({ label = 'Try:', children }) {
+  return (
+    <div
+      style={{
+        background: 'var(--color-bg)', borderRadius: 16, padding: '14px 18px',
+        fontSize: 14, boxShadow: 'var(--shadow-sm)',
+      }}
+    >
+      <span className="text-muted">{label}</span> {children}
+    </div>
+  );
+}
+
+function Section({ title, children }) {
+  return (
+    <section>
+      <h3 style={{ fontSize: 24, letterSpacing: '-.02em', margin: '0 0 10px' }}>{title}</h3>
+      {children}
+    </section>
+  );
+}
 
 export default function Docs() {
   useEffect(() => {
-    document.title = "Documentation - PrepAI";
+    document.title = 'Documentation — PrepAI';
   }, []);
 
   return (
-    <div className="h-full bg-[#FAFAF8] overflow-y-auto">
-      <div className="max-w-4xl mx-auto px-8 py-12">
-        
-        {/* Header */}
-        <div className="mb-16 border-b border-[#E7E5DF] pb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-[#1F6E4A] flex items-center justify-center text-white">
-              <BookOpen size={20} />
-            </div>
-            <h1 style={displayFont} className="text-[#17170F] text-4xl font-bold">
-              Documentation
-            </h1>
-          </div>
-          <p style={bodyFont} className="text-[#6E6C63] text-lg max-w-2xl">
-            Welcome to PrepAI! This guide will help you understand how to use our agentic workflows, long-term memory, and knowledge extraction tools to master your next interview.
+    <div style={{ padding: '56px 56px 72px', maxWidth: 760 }}>
+      <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+        Documentation
+      </p>
+      <h1 style={{ fontSize: 'clamp(36px,4vw,52px)', lineHeight: 1, letterSpacing: '-.035em', margin: '0 0 20px' }}>
+        How PrepAI fits together.
+      </h1>
+      <p style={{ fontSize: 18, lineHeight: 1.55, margin: '0 0 44px', opacity: 0.85 }}>
+        One collection, one coach, three ways to practise. Everything the agent says is grounded
+        in what you saved and what your resume says.
+      </p>
+
+      <article style={{ fontSize: 16, lineHeight: 1.65, display: 'flex', flexDirection: 'column', gap: 36 }}>
+        <Section title="The coach">
+          <p style={{ margin: '0 0 10px' }}>
+            In <b>Coach</b> mode it answers, critiques and drafts. In <b>Mock interview</b> mode it
+            asks one question at a time and waits. In <b>Pressure test</b> mode it picks a project
+            from your resume and digs into architecture and edge cases.
           </p>
-        </div>
+          <p style={{ margin: '0 0 14px' }}>
+            If a question isn&apos;t covered by your collection it searches the web. Facts you tell
+            it about yourself are kept in long-term memory.
+          </p>
+          <Example>
+            &ldquo;Act as a Senior Engineering Manager and ask me a behavioral question about
+            handling team conflicts.&rdquo;
+          </Example>
+        </Section>
 
-        {/* Content Sections */}
-        <div className="space-y-16">
+        <Section title="Practice modes">
+          <p style={{ margin: 0 }}>
+            <b>Flip &amp; self-rate</b> shows the question, reveals your saved answer, and asks for
+            Again, Good or Easy. The rating sets the next review date. <b>Type &amp; grade</b> hides
+            the answer; you write yours and the coach grades it against what you saved.
+          </p>
+        </Section>
 
-          {/* Section 1: The AI Chatbot */}
-          <section className="bg-white rounded-[16px] border border-[#E7E5DF] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <MessageSquare size={24} className="text-[#1F6E4A]" />
-              <h2 style={displayFont} className="text-[#17170F] text-2xl font-bold">The AI Chatbot</h2>
-            </div>
-            <div className="space-y-6">
-              <div>
-                <h3 style={bodyFont} className="text-[#17170F] text-lg font-semibold flex items-center gap-2 mb-2">
-                  <Sparkles size={16} className="text-[#C97A2B]" /> Interactive Coaching
-                </h3>
-                <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed mb-3">
-                  The chatbot is your personal interviewer. It doesn't just answer questions; it can simulate an interview environment.
-                </p>
-                <div className="bg-[#FAFAF8] rounded-[8px] border border-[#E7E5DF] p-4 text-sm font-mono text-[#1F6E4A]">
-                  <span className="text-[#A6A399]">Example prompt:</span> "Act as a Senior Engineering Manager and ask me a behavioral question about handling team conflicts."
-                </div>
-              </div>
+        <Section title="Drafting and saving">
+          <p style={{ margin: '0 0 14px' }}>
+            Refine an answer in chat, then tell the coach to save it. It drafts the pair, suggests
+            tags, and asks for approval before anything is written.
+          </p>
+          <Example label="Step 1:">
+            &ldquo;Help me draft a STAR answer for when I migrated our database to Postgres.&rdquo;
+            <br />
+            <span className="text-muted">Step 2:</span> &ldquo;Save that as &lsquo;Database
+            Migration&rsquo;.&rdquo;
+          </Example>
+        </Section>
 
-              <div className="pt-4 border-t border-[#FAFAF8]">
-                <h3 style={bodyFont} className="text-[#17170F] text-lg font-semibold flex items-center gap-2 mb-2">
-                  <Search size={16} className="text-[#1F6E4A]" /> Autonomous Web Search
-                </h3>
-                <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed mb-3">
-                  If you ask a question about recent events, companies, or specific technologies that aren't in your knowledge base, the agent will autonomously browse the internet to find the answer.
-                </p>
-                <div className="bg-[#FAFAF8] rounded-[8px] border border-[#E7E5DF] p-4 text-sm font-mono text-[#1F6E4A]">
-                  <span className="text-[#A6A399]">Example prompt:</span> "What are the core engineering values currently listed on Netflix's culture page?"
-                </div>
-              </div>
+        <Section title="Resume Hub and the gap report">
+          <p style={{ margin: 0 }}>
+            Upload a PDF and the coach extracts skills, experience and projects. You get a general
+            ATS score and a targeted match once you paste a job description. Progress compares each
+            skill you list with the answers you actually have ready.
+          </p>
+        </Section>
 
-              <div className="pt-4 border-t border-[#FAFAF8]">
-                <h3 style={bodyFont} className="text-[#17170F] text-lg font-semibold flex items-center gap-2 mb-2">
-                  <Brain size={16} className="text-[#1F6E4A]" /> Long-Term Memory (LTM)
-                </h3>
-                <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed mb-3">
-                  Tell the bot facts about yourself. It will autonomously save these facts to its Long-Term Memory and use them in all future conversations.
-                </p>
-                <div className="bg-[#FAFAF8] rounded-[8px] border border-[#E7E5DF] p-4 text-sm font-mono text-[#1F6E4A]">
-                  <span className="text-[#A6A399]">Example prompt:</span> "I am applying for a Senior Frontend Developer role at Vercel. Keep this in mind."
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Section 2: Drafting & Saving Q&A */}
-          <section className="bg-white rounded-[16px] border border-[#E7E5DF] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <Save size={24} className="text-[#1F6E4A]" />
-              <h2 style={displayFont} className="text-[#17170F] text-2xl font-bold">Drafting & Saving Q&A</h2>
-            </div>
-            <div className="space-y-6">
-              <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed">
-                You don't need to manually type out flashcards. You can have a conversation with the AI to refine an answer, and once it looks perfect, simply tell the AI to save it to your collection.
-              </p>
-              <div className="bg-[#FAFAF8] rounded-[8px] border border-[#E7E5DF] p-4 text-sm font-mono text-[#1F6E4A]">
-                <span className="text-[#A6A399]">Step 1:</span> "Help me draft a STAR method answer for when I migrated our database to Postgres."
-                <br/><br/>
-                <span className="text-[#A6A399]">Step 2:</span> "That looks great. Please save that last answer to my collection as 'Database Migration'."
-              </div>
-            </div>
-          </section>
-
-          {/* Section 3: The Knowledge Collection */}
-          <section className="bg-white rounded-[16px] border border-[#E7E5DF] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <BookOpen size={24} className="text-[#1F6E4A]" />
-              <h2 style={displayFont} className="text-[#17170F] text-2xl font-bold">The Knowledge Collection</h2>
-            </div>
-            <div className="space-y-6">
-              <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed">
-                The <b>Collections</b> tab is your personal RAG (Retrieval-Augmented Generation) database. Every time you save a Q&A pair, it is embedded as a vector. 
-                <br/><br/>
-                When you chat with the bot and ask, "What was my story about leadership?", the bot will perform a semantic vector search across your collection to find the exact story you saved previously.
-              </p>
-            </div>
-          </section>
-
-          {/* Section 4: PDF Upload & Auto-Extraction */}
-          <section className="bg-white rounded-[16px] border border-[#E7E5DF] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <FileText size={24} className="text-[#1F6E4A]" />
-              <h2 style={displayFont} className="text-[#17170F] text-2xl font-bold">PDF Upload & Auto-Extraction</h2>
-            </div>
-            <div className="space-y-6">
-              <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed">
-                Have a raw transcript of a past interview, or a resume? You can upload it instantly.
-              </p>
-              <ul className="list-disc list-inside text-[#6E6C63] text-sm space-y-2 ml-2" style={bodyFont}>
-                <li>Click the <b>"Add +"</b> button in the top right of the Collections page.</li>
-                <li>Select the <b>PDF Upload</b> option.</li>
-                <li>Our backend will chunk the document and use a powerful LLM to automatically extract structural Q&A pairs (ignoring conversational filler).</li>
-              </ul>
-            </div>
-          </section>
-
-          {/* Section 5: Exporting the Study Guide */}
-          <section className="bg-white rounded-[16px] border border-[#E7E5DF] p-8 shadow-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <Download size={24} className="text-[#1F6E4A]" />
-              <h2 style={displayFont} className="text-[#17170F] text-2xl font-bold">Exporting the Study Guide</h2>
-            </div>
-            <div className="space-y-6">
-              <p style={bodyFont} className="text-[#6E6C63] text-sm leading-relaxed">
-                Before your actual interview, you might want a physical or offline copy of all your polished stories.
-              </p>
-              <div className="bg-[#17170F] text-white rounded-[8px] p-5 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-[#1F6E4A] flex items-center justify-center shrink-0">
-                  <Zap size={20} className="text-white" />
-                </div>
-                <p style={bodyFont} className="text-sm">
-                  Click the <b>Download</b> icon at the bottom of the left sidebar at any time to generate a beautifully formatted PDF study guide of your entire collection.
-                </p>
-              </div>
-            </div>
-          </section>
-
-        </div>
-      </div>
+        <Section title="Exporting">
+          <p style={{ margin: 0 }}>
+            <b>Export study guide</b> produces a PDF of your whole collection, grouped by tag.
+          </p>
+        </Section>
+      </article>
     </div>
   );
 }

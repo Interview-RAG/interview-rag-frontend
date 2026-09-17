@@ -1,502 +1,433 @@
-import React, { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Upload, FileText, CheckCircle2, Loader2, Briefcase, GraduationCap, Code, Layers, Award, Globe, PlusCircle, Trash2 } from 'lucide-react';
+import { Upload, Swords, X } from 'lucide-react';
+import { useCollection } from '../contexts/CollectionContext';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+const DOT = {
+  positive: 'var(--color-accent-500)',
+  neutral: 'var(--color-neutral-400)',
+  negative: 'var(--color-neutral-600)',
+};
+
+const asBullets = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  return String(value).split('\n').map((s) => s.trim()).filter(Boolean);
+};
 
 export default function ResumeHub({ API_BASE, showToast }) {
-  const [resumeData, setResumeData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
-  const [showJDModal, setShowJDModal] = useState(false);
-  const [jobDescription, setJobDescription] = useState("");
-  const [isScoringJD, setIsScoringJD] = useState(false);
+  const navigate = useNavigate();
+  const { qas } = useCollection();
+  const fileRef = useRef(null);
+
+  const [resume, setResume] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [showJD, setShowJD] = useState(false);
+  const [jd, setJd] = useState('');
+  const [scoring, setScoring] = useState(false);
 
   useEffect(() => {
-    fetchResume();
+    document.title = 'Resume Hub — PrepAI';
   }, []);
 
-  const fetchResume = async () => {
-    try {
-      setIsLoading(true);
-      const res = await axios.get(`${API_BASE}/resume`);
-      if (res.data.resume) {
-        setResumeData(res.data.resume.parsed_data);
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/resume`);
+        if (res.data.resume) setResume(res.data.resume.parsed_data);
+      } catch (err) {
+        console.error('Failed to fetch resume', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error("Failed to fetch resume", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    })();
+  }, [API_BASE]);
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
+  // A skill is "covered" once some saved pair mentions or is tagged with it.
+  const coverage = useMemo(() => {
+    const map = new Map();
+    (resume?.skills || []).forEach((skill) => {
+      if (typeof skill !== 'string') return;
+      const needle = skill.toLowerCase();
+      const count = qas.filter((qa) => {
+        if ((qa.tags || []).some((t) => t.toLowerCase() === needle)) return true;
+        return `${(qa.questions || []).join(' ')} ${qa.answer || ''}`.toLowerCase().includes(needle);
+      }).length;
+      map.set(skill, count);
+    });
+    return map;
+  }, [resume, qas]);
+
+  const handleFileUpload = async (file) => {
     if (!file) return;
-    
-    if (file.type !== "application/pdf") {
-      showToast("Only PDF files are supported");
+    if (file.type !== 'application/pdf') {
+      showToast('Only PDF files are supported');
       return;
     }
-
     const formData = new FormData();
-    formData.append("file", file);
-
+    formData.append('file', file);
     try {
-      setIsUploading(true);
-      showToast("Parsing resume with AI...");
+      setUploading(true);
+      showToast('Parsing resume with AI…');
       const res = await axios.post(`${API_BASE}/resume/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" }
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      setResumeData(res.data.parsed_data);
-      showToast("Resume parsed successfully!");
+      setResume(res.data.parsed_data);
+      showToast('Resume parsed');
     } catch (err) {
-      console.error("Upload failed", err);
-      showToast(err.response?.data?.detail || "Failed to upload resume");
+      console.error('Upload failed', err);
+      showToast(err.response?.data?.detail || 'Failed to upload resume');
     } finally {
-      setIsUploading(false);
-      e.target.value = null;
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
     }
   };
 
-  const handleDeleteResume = async () => {
-    if (!window.confirm("Are you sure you want to delete your resume? This cannot be undone.")) return;
-    
+  const handleDelete = async () => {
+    if (!window.confirm('Delete your resume? This cannot be undone.')) return;
     try {
-      setIsLoading(true);
       await axios.delete(`${API_BASE}/resume`);
-      setResumeData(null);
-      showToast("Resume deleted.");
+      setResume(null);
+      showToast('Resume deleted');
     } catch (err) {
       console.error(err);
-      showToast("Failed to delete resume.");
-    } finally {
-      setIsLoading(false);
+      showToast('Failed to delete resume');
     }
   };
 
   const handleScoreJD = async () => {
-    if (!jobDescription.trim()) return;
+    if (!jd.trim()) return;
     try {
-      setIsScoringJD(true);
-      const res = await axios.post(`${API_BASE}/resume/match`, { job_description: jobDescription });
-      
-      setResumeData(prev => ({
+      setScoring(true);
+      const res = await axios.post(`${API_BASE}/resume/match`, { job_description: jd });
+      setResume((prev) => ({
         ...prev,
         ats_targeted_score: res.data.score_data,
-        targeted_job_description: jobDescription
+        targeted_job_description: jd,
       }));
-      setShowJDModal(false);
-      showToast("Resume scored against Job Description!");
+      setShowJD(false);
+      showToast('Scored against the job description');
     } catch (err) {
       console.error(err);
-      showToast("Failed to score resume.");
+      showToast('Failed to score resume');
     } finally {
-      setIsScoringJD(false);
+      setScoring(false);
     }
   };
 
-  if (isLoading) {
+  if (loading) {
+    return <div className="text-muted" style={{ padding: 56 }}>Loading your resume…</div>;
+  }
+
+  if (!resume) {
     return (
-      <div className="flex-1 h-full flex items-center justify-center bg-neutral-950">
-        <Loader2 className="animate-spin text-white/50" size={32} />
+      <div style={{ padding: '56px 56px 72px', maxWidth: 1000 }}>
+        <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+          Resume Hub
+        </p>
+        <h1 style={{ fontSize: 'clamp(40px,4.6vw,64px)', lineHeight: 0.98, letterSpacing: '-.035em', margin: '0 0 20px', maxWidth: '20ch' }}>
+          Give the coach something to work with.
+        </h1>
+        <p style={{ fontSize: 19, lineHeight: 1.5, margin: '0 0 32px', maxWidth: '52ch' }}>
+          Upload a PDF and the coach extracts your skills, experience and projects — then it can
+          draft STAR answers from your real work and pressure-test your projects.
+        </p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/pdf"
+          onChange={(e) => handleFileUpload(e.target.files[0])}
+          style={{ display: 'none' }}
+        />
+        <button
+          className="btn btn-primary"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+          style={{ minHeight: 48, padding: '0 24px' }}
+        >
+          <Upload size={15} />{uploading ? 'Parsing…' : 'Upload your resume'}
+        </button>
       </div>
     );
   }
 
+  const general = resume.ats_general_score;
+  const targeted = resume.ats_targeted_score;
+  const name = resume.contact_info?.name || 'Your resume';
+  const experience = resume.experience || [];
+  const education = resume.education || [];
+  const projects = resume.projects || [];
+  const certifications = resume.certifications || [];
+
   return (
-    <div className="flex-1 h-full flex flex-col bg-neutral-950 overflow-y-auto relative text-white" style={bodyFont}>
-      
-      {/* Background Animated Orbs */}
-      <div className="absolute top-[10%] left-[20%] w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[100px] animate-orb pointer-events-none" />
-      <div className="absolute top-[40%] right-[10%] w-[350px] h-[350px] bg-emerald-500/10 rounded-full blur-[120px] animate-orb pointer-events-none" style={{ animationDelay: '2s' }} />
+    <div style={{ padding: '56px 56px 72px', maxWidth: 1000 }}>
+      <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+        Resume Hub · parsed from your PDF
+      </p>
+      <h1 style={{ fontSize: 'clamp(40px,4.6vw,64px)', lineHeight: 0.98, letterSpacing: '-.035em', margin: '0 0 20px' }}>
+        {name}
+      </h1>
+      {resume.summary && (
+        <p style={{ fontSize: 19, lineHeight: 1.5, margin: '0 0 12px', maxWidth: '52ch' }}>{resume.summary}</p>
+      )}
+      <p className="text-muted" style={{ fontSize: 14, margin: '0 0 28px' }}>
+        {[resume.contact_info?.email, resume.contact_info?.phone, resume.contact_info?.linkedin]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
 
-      {/* Header */}
-      <div className="bg-neutral-950/80 backdrop-blur-xl border-b border-white/5 px-10 py-8 shrink-0 sticky top-0 z-20 shadow-lg">
-        <h1 style={displayFont} className="text-3xl font-bold text-white tracking-tight">Resume Hub</h1>
-        <p className="text-neutral-400 text-[14px] mt-2 font-medium">Upload your resume to personalize your AI interview prep.</p>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/pdf"
+        onChange={(e) => handleFileUpload(e.target.files[0])}
+        style={{ display: 'none' }}
+      />
+      <div style={{ display: 'flex', gap: 8, marginBottom: 48, flexWrap: 'wrap' }}>
+        <button
+          className="btn"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+          style={{ background: 'var(--color-bg)', boxShadow: 'var(--shadow-sm)' }}
+        >
+          <Upload size={14} />{uploading ? 'Parsing…' : 'Replace PDF'}
+        </button>
+        <button className="btn btn-ghost" onClick={handleDelete}>Delete resume</button>
       </div>
 
-      <div className="flex-1 p-10 max-w-6xl mx-auto w-full flex flex-col gap-10 relative z-10">
-        
-        {/* Upload Section - Only show if NO resume data exists */}
-        {!resumeData && (
-          <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group transition-all duration-500 hover:border-white/20">
-            <div className="absolute inset-0 bg-gradient-to-b from-white/[0.02] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            
-            <div className="w-20 h-20 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6 text-emerald-400 border border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.2)] group-hover:scale-110 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.4)] transition-all duration-500">
-              {isUploading ? <Loader2 className="animate-spin" size={36} strokeWidth={1.5} /> : <Upload size={36} strokeWidth={1.5} />}
-            </div>
-            
-            <h2 style={displayFont} className="text-2xl font-bold text-white mb-3">
-              {isUploading ? "Analyzing Resume with AI..." : "Upload New Resume"}
-            </h2>
-            <p className="text-neutral-400 text-[14px] mb-8 max-w-lg leading-relaxed">
-              We use advanced AI to extract your skills and experience to tailor your mock interviews and generated answers specifically to your profile.
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 16, marginBottom: 56 }}>
+        <div style={{ background: 'var(--color-bg)', borderRadius: 24, padding: '28px 30px', boxShadow: 'var(--shadow-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
+            <span style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 56, lineHeight: 1, letterSpacing: '-.03em' }}>
+              {general?.score ?? '—'}
+            </span>
+            <span className="text-muted" style={{ fontSize: 14 }}>general ATS score</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 999, background: 'var(--color-surface)', margin: '10px 0 18px' }}>
+            <div style={{ height: 6, borderRadius: 999, width: `${general?.score || 0}%`, background: 'var(--color-text)' }} />
+          </div>
+          <FeedbackList items={general?.feedback} />
+        </div>
+
+        <div style={{ background: 'var(--color-accent-100)', borderRadius: 24, padding: '28px 30px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 6 }}>
+            <span
+              style={{
+                fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 56,
+                lineHeight: 1, letterSpacing: '-.03em', color: 'var(--color-accent)',
+              }}
+            >
+              {targeted?.score ?? '—'}
+            </span>
+            <span style={{ fontSize: 14, opacity: 0.75 }}>
+              {targeted ? 'match · your target role' : 'no job description yet'}
+            </span>
+          </div>
+          <div
+            style={{
+              height: 6, borderRadius: 999, margin: '10px 0 18px',
+              background: 'color-mix(in srgb, var(--color-accent) 18%, transparent)',
+            }}
+          >
+            <div style={{ height: 6, borderRadius: 999, width: `${targeted?.score || 0}%`, background: 'var(--color-accent)' }} />
+          </div>
+          {targeted ? (
+            <FeedbackList items={targeted.feedback} />
+          ) : (
+            <p style={{ fontSize: 14, lineHeight: 1.5, margin: 0, opacity: 0.8 }}>
+              Paste the job description you are targeting and the coach scores your resume
+              against its actual keywords.
             </p>
-            
-            <label className={`relative flex items-center justify-center gap-3 px-8 py-3.5 rounded-xl text-[14px] font-bold transition-all duration-300 ${isUploading ? 'bg-white/10 text-white/50 cursor-not-allowed' : 'bg-white text-neutral-950 hover:bg-neutral-200 hover:scale-105 cursor-pointer shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)]'}`}>
-              <FileText size={18} />
-              {isUploading ? 'Processing PDF...' : 'Select PDF Resume'}
-              <input 
-                type="file" 
-                accept=".pdf"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                onChange={handleFileUpload}
-                disabled={isUploading}
-              />
-            </label>
-          </div>
-        )}
-
-        {/* Parsed Data Display */}
-        {resumeData && (
-          <div className="animate-[slideUp_0.6s_ease_forwards] flex flex-col gap-8 pb-16">
-            <div className="flex items-center justify-between gap-3 mb-2 pb-4 border-b border-white/5">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={24} className="text-emerald-400" />
-                <h2 style={displayFont} className="text-2xl font-bold text-white tracking-tight">Extracted Profile</h2>
-              </div>
-              <button 
-                onClick={handleDeleteResume}
-                className="flex items-center gap-2 px-4 py-2 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 rounded-lg text-sm font-medium transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)] hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] border border-red-500/20 hover:border-red-500/40"
-              >
-                <Trash2 size={16} />
-                Delete Resume
-              </button>
-            </div>
-            
-            {/* ATS Score Section */}
-            {resumeData.ats_general_score && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-4">
-                {/* General Score Card */}
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col h-full relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-                  <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400 mb-6">General ATS Score</h3>
-                  <div className="flex gap-6 items-start">
-                    <div className="flex-shrink-0 relative w-24 h-24 flex items-center justify-center">
-                      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                        <path className="text-white/10" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path className={resumeData.ats_general_score.score >= 80 ? 'text-emerald-400' : resumeData.ats_general_score.score >= 60 ? 'text-yellow-400' : 'text-red-400'} strokeDasharray={`${resumeData.ats_general_score.score}, 100`} strokeWidth="3" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                      </svg>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span style={displayFont} className="text-2xl font-bold text-white">{resumeData.ats_general_score.score}</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 space-y-3">
-                      {resumeData.ats_general_score.feedback.map((fb, idx) => (
-                        <div key={idx} className={`flex items-start gap-2 text-[13px] ${fb.type === 'positive' ? 'text-emerald-400/90' : fb.type === 'negative' ? 'text-red-400/90' : 'text-yellow-400/90'}`}>
-                          <span className="mt-0.5">{fb.type === 'positive' ? '✓' : fb.type === 'negative' ? '✗' : 'ℹ'}</span>
-                          <span className="leading-snug">{fb.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Targeted Score Card */}
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl flex flex-col h-full relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-                  <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400 mb-6">Targeted JD Match</h3>
-                  
-                  {resumeData.ats_targeted_score ? (
-                    <div className="flex gap-6 items-start">
-                      <div className="flex-shrink-0 relative w-24 h-24 flex items-center justify-center">
-                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                          <path className="text-white/10" strokeWidth="3" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                          <path className={resumeData.ats_targeted_score.score >= 80 ? 'text-emerald-400' : resumeData.ats_targeted_score.score >= 60 ? 'text-yellow-400' : 'text-red-400'} strokeDasharray={`${resumeData.ats_targeted_score.score}, 100`} strokeWidth="3" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span style={displayFont} className="text-2xl font-bold text-white">{resumeData.ats_targeted_score.score}</span>
-                        </div>
-                      </div>
-                      <div className="flex-1 flex flex-col">
-                        <div className="space-y-3 mb-4">
-                          {resumeData.ats_targeted_score.feedback.map((fb, idx) => (
-                            <div key={idx} className={`flex items-start gap-2 text-[13px] ${fb.type === 'positive' ? 'text-emerald-400/90' : fb.type === 'negative' ? 'text-red-400/90' : 'text-yellow-400/90'}`}>
-                              <span className="mt-0.5">{fb.type === 'positive' ? '✓' : fb.type === 'negative' ? '✗' : 'ℹ'}</span>
-                              <span className="leading-snug">{fb.message}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <button onClick={() => { setJobDescription(resumeData.targeted_job_description || ""); setShowJDModal(true); }} className="mt-auto self-start text-[12px] font-semibold text-blue-400 hover:text-blue-300 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-lg border border-blue-500/20 transition-all">
-                          Update Job Description
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                      <p className="text-white/50 text-[14px] mb-4">You have a general health score, but to get a highly accurate targeted score, we need to compare it against a Job Description.</p>
-                      <button onClick={() => setShowJDModal(true)} className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[14px] font-semibold transition-all shadow-[0_0_15px_rgba(37,99,235,0.3)]">
-                        <FileText size={16} /> Add Job Description
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              
-              {/* Left Column: Skills, Summary, Languages */}
-              <div className="lg:col-span-1 flex flex-col gap-6">
-                
-                {/* Profile Picture & Summary */}
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-xl hover:border-white/20 transition-colors duration-300">
-                  {resumeData.profile_picture_url && (
-                    <div className="flex justify-center mb-6">
-                      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                        <img 
-                          src={resumeData.profile_picture_url} 
-                          alt="Profile" 
-                          className="w-full h-full object-cover"
-                          onError={(e) => e.target.style.display = 'none'}
-                        />
-                      </div>
-                    </div>
-                  )}
-                  {resumeData.summary && (
-                    <>
-                      <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400 mb-4">Summary</h3>
-                      <p className="text-[14px] leading-relaxed text-white/80">{resumeData.summary}</p>
-                    </>
-                  )}
-                </div>
-
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-xl hover:border-white/20 transition-colors duration-300">
-                  <div className="flex items-center gap-2 mb-5">
-                    <Code size={18} className="text-emerald-400" />
-                    <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Skills</h3>
-                  </div>
-                  <div className="flex flex-wrap gap-2.5">
-                    {resumeData.skills && resumeData.skills.length > 0 ? (
-                      resumeData.skills.map((skill, i) => (
-                        <span key={i} className="px-3.5 py-1.5 bg-emerald-500/10 text-emerald-400 text-[13px] font-semibold rounded-full border border-emerald-500/30 hover:bg-emerald-500/30 hover:scale-105 transition-all duration-300 cursor-default shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                          {skill}
-                        </span>
-                      ))
-                    ) : (
-                      <p className="text-[14px] text-white/40">No skills extracted.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Languages */}
-                {resumeData.languages && resumeData.languages.length > 0 && (
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-7 shadow-xl hover:border-white/20 transition-colors duration-300">
-                    <div className="flex items-center gap-2 mb-5">
-                      <Globe size={18} className="text-emerald-400" />
-                      <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Languages</h3>
-                    </div>
-                    <div className="flex flex-wrap gap-2.5">
-                      {resumeData.languages.map((lang, i) => (
-                        <span key={i} className="px-3.5 py-1.5 bg-blue-500/10 text-blue-400 text-[13px] font-semibold rounded-full border border-blue-500/30 shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-                          {lang}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Column: Experience & Education */}
-              <div className="lg:col-span-2 flex flex-col gap-8">
-                
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
-                  <div className="flex items-center gap-2 mb-8">
-                    <Briefcase size={20} className="text-emerald-400" />
-                    <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Experience</h3>
-                  </div>
-                  <div className="flex flex-col relative pl-6 border-l-2 border-white/10 space-y-10">
-                    {resumeData.experience && resumeData.experience.length > 0 ? (
-                      resumeData.experience.map((exp, i) => (
-                        <div key={i} className="relative group">
-                          {/* Timeline Node */}
-                          <div className="absolute -left-[31px] top-1.5 w-[14px] h-[14px] rounded-full bg-neutral-950 border-[3px] border-emerald-400 group-hover:bg-emerald-400 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300" />
-                          
-                          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6 hover:bg-white/[0.04] hover:border-white/10 transition-colors duration-300">
-                              <h4 style={displayFont} className="text-[18px] font-bold text-white tracking-tight mb-1">{exp.role}</h4>
-                            <div className="flex flex-wrap items-center justify-between gap-4 text-[13px] text-neutral-400 font-medium mb-4">
-                              <span className="text-emerald-400">{exp.company}</span>
-                              <span className="bg-white/5 px-2.5 py-1 rounded-md">{exp.start_date} - {exp.end_date || 'Present'}</span>
-                            </div>
-                            {exp.description && (
-                              <div className="text-[14px] text-white/70 leading-relaxed space-y-2">
-                                {Array.isArray(exp.description) ? (
-                                  <ul className="list-disc pl-5 space-y-2 marker:text-white/30">
-                                    {exp.description.map((item, idx) => <li key={idx}>{item}</li>)}
-                                  </ul>
-                                ) : (
-                                  <p>{exp.description}</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[14px] text-white/40">No experience extracted.</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
-                  <div className="flex items-center gap-2 mb-8">
-                    <GraduationCap size={20} className="text-emerald-400" />
-                    <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Education</h3>
-                  </div>
-                  <div className="flex flex-col relative pl-6 border-l-2 border-white/10 space-y-8">
-                    {resumeData.education && resumeData.education.length > 0 ? (
-                      resumeData.education.map((edu, i) => (
-                        <div key={i} className="relative group">
-                          {/* Timeline Node */}
-                          <div className="absolute -left-[31px] top-1.5 w-[14px] h-[14px] rounded-full bg-neutral-950 border-[3px] border-emerald-400 group-hover:bg-emerald-400 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300" />
-                          
-                          <div className="flex flex-col gap-1.5">
-                            <h4 style={displayFont} className="text-[17px] font-bold text-white tracking-tight">{edu.degree} in {edu.field_of_study}</h4>
-                            <p className="text-[14px] text-neutral-400 font-medium">{edu.institution} <span className="text-white/30 mx-2">•</span> {edu.start_date} - {edu.end_date}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[14px] text-white/40">No education extracted.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Projects Section */}
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
-                  <div className="flex items-center gap-2 mb-8">
-                    <Layers size={20} className="text-emerald-400" />
-                    <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Projects</h3>
-                  </div>
-                  <div className="flex flex-col relative pl-6 border-l-2 border-white/10 space-y-10">
-                    {resumeData.projects && resumeData.projects.length > 0 ? (
-                      resumeData.projects.map((proj, i) => (
-                        <div key={i} className="relative group">
-                          {/* Timeline Node */}
-                          <div className="absolute -left-[31px] top-1.5 w-[14px] h-[14px] rounded-full bg-neutral-950 border-[3px] border-emerald-400 group-hover:bg-emerald-400 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300" />
-                          
-                          <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6 hover:bg-white/[0.04] hover:border-white/10 transition-colors duration-300">
-                              <h4 style={displayFont} className="text-[18px] font-bold text-white tracking-tight mb-3">{proj.name}</h4>
-                            {proj.description && (
-                              <div className="text-[14px] text-white/70 leading-relaxed mb-4 space-y-2">
-                                {Array.isArray(proj.description) ? (
-                                  <ul className="list-disc pl-5 space-y-2 marker:text-white/30">
-                                    {proj.description.map((item, idx) => <li key={idx}>{item}</li>)}
-                                  </ul>
-                                ) : (
-                                  <p>{proj.description}</p>
-                                )}
-                              </div>
-                            )}
-                            {proj.technologies && proj.technologies.length > 0 && (
-                              <div className="flex flex-wrap gap-2">
-                                {proj.technologies.map((tech, idx) => (
-                                  <span key={idx} className="px-2.5 py-1 bg-white/5 text-neutral-300 text-[11px] font-semibold rounded-md border border-white/10">
-                                    {tech}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-[14px] text-white/40">No projects extracted.</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Certifications Section */}
-                {resumeData.certifications && resumeData.certifications.length > 0 && (
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
-                    <div className="flex items-center gap-2 mb-8">
-                      <Award size={20} className="text-emerald-400" />
-                      <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">Certifications</h3>
-                    </div>
-                    <div className="flex flex-col relative pl-6 border-l-2 border-white/10 space-y-8">
-                      {resumeData.certifications.map((cert, i) => (
-                        <div key={i} className="relative group">
-                          {/* Timeline Node */}
-                          <div className="absolute -left-[31px] top-1.5 w-[14px] h-[14px] rounded-full bg-neutral-950 border-[3px] border-emerald-400 group-hover:bg-emerald-400 group-hover:shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300" />
-                          
-                          <div className="flex flex-col gap-1.5">
-                            <h4 style={displayFont} className="text-[17px] font-bold text-white tracking-tight">{cert.name}</h4>
-                            <p className="text-[14px] text-neutral-400 font-medium">
-                              {cert.issuer} {cert.date && <><span className="text-white/30 mx-2">•</span> {cert.date}</>}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Custom Sections (Catch-all) */}
-                {resumeData.custom_sections && resumeData.custom_sections.length > 0 && (
-                  <>
-                    {resumeData.custom_sections.map((section, idx) => (
-                      <div key={idx} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-xl">
-                        <div className="flex items-center gap-2 mb-8">
-                          <PlusCircle size={20} className="text-emerald-400" />
-                          <h3 className="text-[12px] font-bold uppercase tracking-[0.15em] text-neutral-400">{section.title}</h3>
-                        </div>
-                        <div className="text-[14px] text-white/70 leading-relaxed">
-                          {Array.isArray(section.content) ? (
-                            <ul className="list-disc pl-5 space-y-2 marker:text-white/30">
-                              {section.content.map((item, i) => <li key={i}>{item}</li>)}
-                            </ul>
-                          ) : (
-                            <p>{section.content}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-              </div>
-
-            </div>
-          </div>
-        )}
+          )}
+          <button className="btn btn-ghost" onClick={() => setShowJD(true)} style={{ marginTop: 12, paddingLeft: 0 }}>
+            {targeted ? 'Change job description →' : 'Add a job description →'}
+          </button>
+        </div>
       </div>
 
-      {/* Job Description Modal */}
-      {showJDModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-neutral-950/80 backdrop-blur-md p-4">
-          <div className="bg-[#121212] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-[slideUp_0.3s_ease_out]">
-            <div className="p-6 border-b border-white/10 flex justify-between items-center">
-              <h3 style={displayFont} className="text-xl font-bold text-white">Targeted ATS Score</h3>
-              <button onClick={() => setShowJDModal(false)} className="text-white/40 hover:text-white transition-colors">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      {coverage.size > 0 && (
+        <>
+          <h2 style={{ fontSize: 24, letterSpacing: '-.02em', margin: '0 0 6px' }}>What you claim to know</h2>
+          <p className="text-muted" style={{ fontSize: 14, margin: '0 0 16px' }}>
+            Filled skills have Q&amp;As behind them. Outlined ones don&apos;t yet —{' '}
+            <a href="#progress" onClick={(e) => { e.preventDefault(); navigate('/progress'); }}>see the gap</a>.
+          </p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 56 }}>
+            {[...coverage.entries()].map(([skill, count]) => (
+              <span
+                key={skill}
+                title={count ? `${count} Q&A behind this` : 'No answers yet'}
+                style={{
+                  fontSize: 14, padding: '8px 16px', borderRadius: 999,
+                  background: count ? 'var(--color-accent-100)' : 'transparent',
+                  color: count ? 'var(--color-accent-800)' : 'var(--color-text)',
+                  border: `1px solid ${count ? 'transparent' : 'var(--color-divider)'}`,
+                }}
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
+        </>
+      )}
+
+      {(experience.length > 0 || education.length > 0) && (
+        <>
+          <h2 style={{ fontSize: 24, letterSpacing: '-.02em', margin: '0 0 24px' }}>Where you learned it</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 36, marginBottom: 56, maxWidth: 720 }}>
+            {experience.map((e, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px minmax(0,1fr)', gap: 20 }}>
+                <div className="text-muted" style={{ fontSize: 13, lineHeight: 1.5, paddingTop: 4 }}>
+                  {[e.start_date, e.end_date].filter(Boolean).join(' – ')}
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 20, letterSpacing: '-.015em' }}>
+                    {e.role}
+                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 10, color: 'var(--color-accent-700)' }}>{e.company}</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14.5, lineHeight: 1.55 }}>
+                    {asBullets(e.description).map((b, j) => <p key={j} style={{ margin: 0 }}>{b}</p>)}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {education.map((ed, i) => (
+              <div key={i} style={{ display: 'grid', gridTemplateColumns: '150px minmax(0,1fr)', gap: 20 }}>
+                <div className="text-muted" style={{ fontSize: 13, paddingTop: 4 }}>
+                  {[ed.start_date, ed.end_date].filter(Boolean).join(' – ')}
+                </div>
+                <div>
+                  <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 20, letterSpacing: '-.015em' }}>
+                    {[ed.degree, ed.field_of_study].filter(Boolean).join(', ')}
+                  </div>
+                  <div className="text-muted" style={{ fontSize: 14 }}>
+                    {[ed.institution, ...certifications.map((c) => `${c.name}${c.date ? `, ${c.date}` : ''}`)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {projects.length > 0 && (
+        <>
+          <h2 style={{ fontSize: 24, letterSpacing: '-.02em', margin: '0 0 6px' }}>
+            Projects an interviewer will dig into
+          </h2>
+          <p className="text-muted" style={{ fontSize: 14, margin: '0 0 20px' }}>
+            Run a pressure test and the coach will interrogate one of these.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 16 }}>
+            {projects.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  background: 'var(--color-bg)', borderRadius: 24, padding: 28,
+                  boxShadow: 'var(--shadow-sm)', display: 'flex', flexDirection: 'column', gap: 12,
+                }}
+              >
+                <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 22, letterSpacing: '-.02em' }}>
+                  {p.name}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 14, lineHeight: 1.55, opacity: 0.85, flex: 1 }}>
+                  {asBullets(p.description).map((b, j) => <p key={j} style={{ margin: 0 }}>{b}</p>)}
+                </div>
+                {(p.technologies || []).length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {p.technologies.map((t) => <span key={t} className="tag tag-neutral">{t}</span>)}
+                  </div>
+                )}
+                <button
+                  className="btn btn-primary"
+                  onClick={() => navigate('/chat', {
+                    state: { ask: `Pressure-test me on ${p.name}. Start with the architecture.` },
+                  })}
+                  style={{ alignSelf: 'flex-start', marginTop: 6 }}
+                >
+                  <Swords size={14} />Pressure test this
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showJD && (
+        <div
+          className="dialog-backdrop"
+          onClick={() => setShowJD(false)}
+          style={{
+            zIndex: 120,
+            background: 'color-mix(in srgb, var(--color-neutral-900) 40%, transparent)',
+            backdropFilter: 'blur(6px)',
+          }}
+        >
+          <div
+            className="dialog"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 100%)', borderRadius: 28, padding: 32,
+              background: 'var(--color-bg)', gap: 0, animation: 'rise .3s ease',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: 24, letterSpacing: '-.025em', margin: '0 0 6px' }}>Target a role</h3>
+                <p className="text-muted" style={{ fontSize: 13.5, margin: '0 0 20px' }}>
+                  Paste the job description. Your resume is scored against its keywords.
+                </p>
+              </div>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowJD(false)}
+                style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', color: 'var(--color-text)' }}
+              >
+                <X size={16} />
               </button>
             </div>
-            <div className="p-6">
-              <p className="text-[14px] text-white/60 mb-4">Paste the job description you are applying for below. We will calculate a deterministic match score based on your extracted resume data.</p>
-              <textarea
-                value={jobDescription}
-                onChange={(e) => setJobDescription(e.target.value)}
-                placeholder="Paste Job Description here..."
-                className="w-full h-64 bg-white/5 border border-white/10 rounded-xl p-4 text-[14px] text-white/90 placeholder:text-white/20 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 resize-none"
-              />
-            </div>
-            <div className="p-6 border-t border-white/10 bg-white/[0.02] flex justify-end gap-3">
-              <button onClick={() => setShowJDModal(false)} className="px-5 py-2.5 rounded-xl text-[14px] font-semibold text-white/60 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
-              <button 
-                onClick={handleScoreJD} 
-                disabled={isScoringJD || !jobDescription.trim()}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-600/50 disabled:text-white/50 text-white rounded-xl text-[14px] font-semibold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:shadow-none"
-              >
-                {isScoringJD ? <><Loader2 size={16} className="animate-spin" /> Scoring...</> : 'Calculate Match Score'}
+            <textarea
+              className="input"
+              value={jd}
+              onChange={(e) => setJd(e.target.value)}
+              placeholder="Paste the full job description…"
+              style={{ minHeight: 200, borderRadius: 16, padding: '14px 16px' }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button className="btn btn-primary" onClick={handleScoreJD} disabled={scoring || !jd.trim()} style={{ minHeight: 46 }}>
+                {scoring ? 'Scoring…' : 'Score my resume'}
+              </button>
+              <button className="btn" onClick={() => setShowJD(false)} style={{ minHeight: 46, background: 'var(--color-surface)' }}>
+                Cancel
               </button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FeedbackList({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: 14, lineHeight: 1.5 }}>
+      {items.map((f, i) => (
+        <div key={i} style={{ display: 'flex', gap: 10 }}>
+          <span
+            style={{
+              width: 8, height: 8, borderRadius: '50%', marginTop: 7, flexShrink: 0,
+              background: DOT[f.type] || DOT.neutral,
+            }}
+          />
+          <span>{f.message}</span>
+        </div>
+      ))}
     </div>
   );
 }

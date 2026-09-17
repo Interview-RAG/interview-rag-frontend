@@ -1,45 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { Mail, Lock, Sparkles, Eye, EyeOff, Loader2 } from 'lucide-react';
-import FeatureShowcase from './FeatureShowcase';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowRight } from 'lucide-react';
+
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout, { AuthHeader, AuthField } from './AuthLayout';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
-
-const Signup = ({ showToast }) => {
+export default function Signup({ showToast }) {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
-  
-  useEffect(() => {
-    document.title = "PrepAI";
-  }, []);
 
   const { signUp, verifyOtp, resendOtp } = useAuth();
   const navigate = useNavigate();
 
+  useEffect(() => {
+    document.title = 'Create your account — PrepAI';
+  }, []);
+
   const handleSignup = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      showToast("Please fill in all fields");
+      showToast('Please fill in all fields');
       return;
     }
     if (password.length < 6) {
-      showToast("Password must be at least 6 characters");
+      showToast('Password must be at least 6 characters');
       return;
     }
     setLoading(true);
     try {
       await signUp(email, password);
-      showToast("Verification code sent to your email!");
+      showToast('Security code sent — check your inbox');
       setStep(2);
     } catch (err) {
-      showToast(err.response?.data?.detail || "Failed to create account");
       console.error(err);
+      showToast(err.response?.data?.detail || 'Could not create that account');
     } finally {
       setLoading(false);
     }
@@ -47,18 +44,17 @@ const Signup = ({ showToast }) => {
 
   const handleVerify = async (e) => {
     e.preventDefault();
-    if (!otp) {
-      showToast("Please enter the verification code");
+    if (otp.length < 6) {
+      showToast('Enter the 6-digit code');
       return;
     }
     setLoading(true);
     try {
       await verifyOtp(email, otp);
-      showToast("Account verified successfully!");
       navigate('/collection');
     } catch (err) {
-      showToast(err.response?.data?.detail || "Invalid or expired code");
       console.error(err);
+      showToast(err.response?.data?.detail || 'That code was not valid');
     } finally {
       setLoading(false);
     }
@@ -68,167 +64,92 @@ const Signup = ({ showToast }) => {
     setLoading(true);
     try {
       await resendOtp(email, password);
-      showToast("Verification code resent!");
+      showToast('New code sent');
     } catch (err) {
-      showToast(err.response?.data?.detail || "Failed to resend code");
       console.error(err);
+      showToast(err.response?.data?.detail || 'Could not resend the code');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#FAFAF8]">
-      {/* Left Branding Panel */}
-      <div className="hidden lg:flex flex-1 bg-[#17170F] flex-col justify-between p-12 relative overflow-hidden">
-        {/* Subtle decorative background */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 20% 80%, #1F6E4A 0%, transparent 40%), radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 40%)' }}></div>
-        
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-16">
-            <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
-              <img src="/favicon.png" alt="PrepAI" className="w-full h-full object-cover" />
-            </div>
-            <span style={displayFont} className="text-white text-[18px] font-semibold">
-              PrepAI
-            </span>
-          </div>
-
-          <h1 style={displayFont} className="text-white text-4xl leading-[1.1] font-medium max-w-md">
-            Start your journey. <br/><span className="text-[#A6A399]">Nail the offer.</span>
-          </h1>
-
-          {/* Interactive Feature Showcase */}
-          <FeatureShowcase />
-        </div>
-      </div>
-
-      {/* Right Form Panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-sm">
-          <div className="lg:hidden flex items-center gap-2 mb-10">
-            <div className="w-8 h-8 rounded-[8px] overflow-hidden shrink-0">
-              <img src="/favicon.png" alt="PrepAI" className="w-full h-full object-cover" />
-            </div>
-            <span style={displayFont} className="text-[#17170F] text-[18px] font-semibold">
-              PrepAI
-            </span>
-          </div>
-
-          <div className="mb-8">
-            <h2 style={displayFont} className="text-[#17170F] text-[28px] font-semibold mb-2">
-              Create an account
-            </h2>
-            <p style={bodyFont} className="text-[#6E6C63] text-[14px]">
-              It takes less than a minute.
-            </p>
-          </div>
-
-          {step === 1 ? (
-            <form onSubmit={handleSignup} className="flex flex-col gap-4" autoComplete="off">
-              <div>
-                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-                  Email
-                </label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="you@example.com"
-                    autoComplete="off"
-                    style={bodyFont}
-                    className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#A6A399]" />
-                  <input
-                    type={showPw ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                    style={bodyFont}
-                    className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] pl-10 pr-10 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(p => !p)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A6A399] hover:text-[#6E6C63] transition-colors"
-                  >
-                    {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                style={bodyFont}
-                className="mt-4 w-full flex items-center justify-center gap-2 bg-[#1F6E4A] text-white text-[14px] font-semibold rounded-[8px] py-3.5 transition-all duration-150 active:scale-[0.98] hover:bg-[#195C3D] disabled:opacity-70 disabled:active:scale-100"
-              >
-                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Create Account'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerify} className="flex flex-col gap-4">
-              <div className="mb-2">
-                <p style={bodyFont} className="text-[14px] text-[#17170F] mb-4">
-                  We've sent a 6-digit code to <span className="font-semibold">{email}</span>.
-                </p>
-                <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-                  Verification Code
-                </label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  placeholder="123456"
-                  maxLength={6}
-                  style={bodyFont}
-                  className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] px-3.5 py-3 text-[14px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] transition-colors text-center tracking-widest font-semibold"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || otp.length < 6}
-                style={bodyFont}
-                className="w-full flex items-center justify-center gap-2 bg-[#1F6E4A] text-white text-[14px] font-semibold rounded-[8px] py-3.5 transition-all duration-150 active:scale-[0.98] hover:bg-[#195C3D] disabled:opacity-70 disabled:active:scale-100"
-              >
-                {loading ? <Loader2 size={16} className="animate-spin" /> : 'Verify Code'}
-              </button>
-
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={loading}
-                style={bodyFont}
-                className="text-[#6E6C63] text-[13px] hover:text-[#17170F] mt-2 transition-colors disabled:opacity-50"
-              >
-                Didn't receive it? Resend code
-              </button>
-            </form>
-          )}
-
-          <p style={bodyFont} className="text-center text-[#6E6C63] text-[13px] mt-8">
-            Already have an account?{' '}
-            <Link to="/login" className="text-[#17170F] font-semibold hover:underline">
-              Sign in
-            </Link>
+    <AuthLayout headline="Start the collection that gets you hired.">
+      {step === 1 ? (
+        <>
+          <AuthHeader title="Create your account" sub="Two minutes, then start saving answers." />
+          <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 14 }} autoComplete="off">
+            <AuthField
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              autoComplete="off"
+            />
+            <AuthField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 6 characters"
+              autoComplete="new-password"
+            />
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading}
+              style={{ minHeight: 48, marginTop: 8, justifyContent: 'space-between' }}
+            >
+              {loading ? 'Sending code…' : 'Create account'}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+          <p className="text-muted" style={{ fontSize: 13, margin: '24px 0 0' }}>
+            Already have an account? <Link to="/login">Sign in</Link>
           </p>
-        </div>
-      </div>
-    </div>
+        </>
+      ) : (
+        <>
+          <AuthHeader title="Enter security code" sub={`We sent a 6-digit code to ${email}.`} />
+          <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <AuthField
+              label="Security code"
+              inputMode="numeric"
+              maxLength={6}
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="000000"
+              style={{
+                minHeight: 46, padding: '10px 16px',
+                fontFamily: 'var(--font-heading)', fontWeight: 800,
+                fontSize: 22, letterSpacing: '.3em', textAlign: 'center',
+              }}
+            />
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={loading || otp.length < 6}
+              style={{ minHeight: 48, marginTop: 8, justifyContent: 'space-between' }}
+            >
+              {loading ? 'Verifying…' : 'Verify and continue'}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+          <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+            <button className="btn btn-ghost" onClick={handleResend} disabled={loading} style={{ fontSize: 13 }}>
+              Resend code
+            </button>
+            <button
+              className="btn btn-ghost"
+              onClick={() => { setStep(1); setOtp(''); }}
+              style={{ fontSize: 13, marginLeft: 'auto', color: 'var(--color-text)', opacity: 0.7 }}
+            >
+              Use a different email
+            </button>
+          </div>
+        </>
+      )}
+    </AuthLayout>
   );
-};
-
-export default Signup;
+}

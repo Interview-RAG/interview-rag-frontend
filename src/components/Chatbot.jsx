@@ -1,120 +1,155 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Send, Sparkles, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Send, Check, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+
 import { useSession } from '../contexts/SessionContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useCollection } from '../contexts/CollectionContext';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+const MODES = {
+  coach: {
+    label: 'Coach',
+    kicker: 'Coach mode',
+    headline: 'Ask, critique, draft. Grounded in what you saved.',
+    placeholder: 'Ask a follow-up, or say “save that as a Q&A”…',
+  },
+  mock: {
+    label: 'Mock interview',
+    kicker: 'Mock interview',
+    headline: 'One question at a time. Answer as you would in the room.',
+    placeholder: 'Answer out loud, then type the short version…',
+  },
+  pressure: {
+    label: 'Pressure test',
+    kicker: 'Pressure test',
+    headline: 'Pick a project. Expect the follow-ups to hurt.',
+    placeholder: 'Defend a decision you made on this project…',
+  },
+  jobs: {
+    label: 'Jobs',
+    kicker: 'Job search',
+    headline: 'Roles opened this week, matched to your resume.',
+    placeholder: 'Find me backend roles in Bangalore posted this week…',
+  },
+};
 
-function ToolRow({ label }) {
-  return (
-    <div className="flex items-center gap-2 pl-11">
-      <Loader2 size={12} className="text-[#A6A399] animate-spin" />
-      <span style={bodyFont} className="text-[#A6A399] text-[12px] italic">
-        {label}…
-      </span>
-    </div>
-  );
-}
-
-function ChatMessage({ msg, userInitials }) {
-  if (msg.role === "tool") return <ToolRow label={msg.text} />;
-
-  if (msg.role === "user") {
-    return (
-      <div className="flex justify-end gap-3 animate-[fadeIn_0.3s_ease]">
-        <div
-          style={bodyFont}
-          className="max-w-[60%] bg-[#17170F] text-white text-[13.5px] leading-relaxed rounded-[12px] rounded-tr-[3px] px-4 py-3 whitespace-pre-line"
-        >
-          {msg.text}
-        </div>
-        <div className="w-8 h-8 rounded-full bg-[#1F6E4A] flex items-center justify-center text-white text-[10px] font-semibold shrink-0 uppercase">
-          {userInitials}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex gap-3 animate-[fadeIn_0.3s_ease]">
-      <div className="w-8 h-8 rounded-full border border-[#E7E5DF] shrink-0 overflow-hidden">
-        <img src="/favicon.png" alt="AI" className="w-full h-full object-cover" />
-      </div>
-      <div
-        style={bodyFont}
-        className="max-w-[80%] text-[#17170F] text-[13.5px] leading-relaxed pt-1.5 markdown-content"
-      >
-        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
-          {msg.text}
-        </ReactMarkdown>
-      </div>
-    </div>
-  );
-}
+const TOOL_LABELS = {
+  search_knowledge_base: 'Searching your collection',
+  get_resume: 'Reading your resume',
+  search_jobs: 'Searching job boards',
+  search_web: 'Searching the internet',
+  save_user_fact: 'Updating your profile',
+  save_qa_to_collection: 'Drafting Q&A',
+};
 
 export default function Chatbot({ API_BASE, showToast }) {
   const { user } = useAuth();
-  const { activeSession, messages, setMessages, loading, setLoading, updateSessionTitle } = useSession();
-  
+  const location = useLocation();
+  const navigate = useNavigate();
+  const {
+    activeSession, messages, setMessages, loading, setLoading,
+    updateSessionTitle, setSessions, setActiveSession,
+  } = useSession();
+  const { refresh: refreshCollection } = useCollection();
+
   const [input, setInput] = useState('');
+  const [mode, setMode] = useState('coach');
+  const [project, setProject] = useState(null);
+  const [projects, setProjects] = useState([]);
+  const [pending, setPending] = useState(null);
   const [currentTool, setCurrentTool] = useState(null);
   const [approvalData, setApprovalData] = useState(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState('');
-  const endOfMessagesRef = useRef(null);
+  const endRef = useRef(null);
 
+  const meta = MODES[mode];
+  const initials = (user?.email || 'U').slice(0, 2).toUpperCase();
   const isNew = messages.length <= 1;
-  const userInitials = user?.email?.substring(0, 2) || "U";
-
-  const scrollToBottom = () => {
-    setTimeout(() => {
-      endOfMessagesRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
-  };
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, currentTool]);
-
-  useEffect(() => {
-    document.title = activeSession ? `${activeSession.title} - PrepAI` : "New Chat - PrepAI";
+    document.title = activeSession ? `${activeSession.title} — PrepAI` : 'Chat — PrepAI';
   }, [activeSession]);
 
-  const getToolDisplayName = (toolName) => {
-    switch(toolName) {
-      case 'search_knowledge_base': return 'Searching knowledge base';
-      case 'search_web': return 'Searching the internet';
-      case 'save_user_fact': return 'Updating your profile';
-      case 'save_qa_to_collection': return 'Drafting Q&A';
-      default: return 'Using tool';
+  useEffect(() => {
+    setTimeout(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  }, [messages, currentTool, approvalData]);
+
+  // Arriving from an "Ask the coach" button. `ask` is sent for you — the
+  // button promised a question, so making the user press Enter again is just
+  // a dead end. `prefill` only populates the box, for anything you'd want to
+  // edit first.
+  useEffect(() => {
+    const incoming = location.state;
+    if (!incoming?.ask && !incoming?.prefill) return;
+
+    if (incoming.ask) {
+      // These buttons all want critique or questioning, which is Coach mode.
+      // Mock and Pressure would answer with a question of their own.
+      setMode('coach');
+      setPending(incoming.ask);
+    } else {
+      setInput(incoming.prefill);
     }
-  };
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location, navigate]);
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-    if (!input.trim() || !activeSession) return;
+  // Held until the session exists and nothing else is streaming.
+  useEffect(() => {
+    if (pending && activeSession && !loading) {
+      const text = pending;
+      setPending(null);
+      sendMessage(text);
+    }
+    // sendMessage is intentionally omitted: it is recreated every render and
+    // `pending` is cleared before dispatch, so this can only fire once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, activeSession, loading]);
 
-    const userMessage = input.trim();
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+  // Pressure test needs something to interrogate.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/resume`);
+        const parsed = res.data?.resume?.parsed_data;
+        if (!cancelled && parsed?.projects) {
+          setProjects(parsed.projects.map((p) => p.name).filter(Boolean).slice(0, 4));
+        }
+      } catch {
+        /* no resume yet — pressure test just runs without a preset project */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [API_BASE]);
+
+  const sendMessage = async (text) => {
+    const userMessage = (text || '').trim();
+    if (!userMessage || !activeSession || loading) return;
+
+    setMessages((prev) => [...prev, { role: 'user', text: userMessage }]);
     setInput('');
     setLoading(true);
     setCurrentTool(null);
 
     try {
       const token = localStorage.getItem('auth_token');
-
       const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ query: userMessage, session_id: activeSession.id })
+        body: JSON.stringify({
+          query: userMessage,
+          session_id: activeSession.id,
+          mode,
+          project: mode === 'pressure' ? project : null,
+        }),
       });
 
       if (!response.ok) throw new Error('Network response was not ok');
@@ -127,45 +162,40 @@ export default function Chatbot({ API_BASE, showToast }) {
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
-        if (value) {
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.substring(6);
-              try {
-                const data = JSON.parse(dataStr);
-                
-                if (data.type === 'session_title') {
-                  setSessions(prev => prev.map(s => s.id === activeSession.id ? { ...s, title: data.title } : s));
-                  setActiveSession(prev => ({ ...prev, title: data.title }));
-                } else if (data.type === 'tool_start') {
-                  setCurrentTool(getToolDisplayName(data.name));
-                } else if (data.type === 'tool_end') {
-                  setCurrentTool(null);
-                } else if (data.type === 'requires_approval') {
-                  setMessages(prev => [...prev, { role: 'bot', text: data.answer_msg }]);
-                  setApprovalData({
-                      ...data,
-                      approvals: data.approvals.map(a => ({ ...a, approved: true }))
-                  });
-                } else if (data.type === 'final_answer') {
-                  setMessages(prev => [...prev, { role: 'bot', text: data.content }]);
-                } else if (data.type === 'error') {
-                  setMessages(prev => [...prev, { role: 'bot', text: data.message }]);
-                }
-              } catch (e) {
-                console.error("Error parsing JSON from stream:", e);
-              }
+        if (!value) continue;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.substring(6));
+
+            if (data.type === 'session_title') {
+              setSessions((prev) => prev.map((s) => (s.id === activeSession.id ? { ...s, title: data.title } : s)));
+              setActiveSession((prev) => ({ ...prev, title: data.title }));
+            } else if (data.type === 'tool_start') {
+              setCurrentTool(TOOL_LABELS[data.name] || 'Using tool');
+            } else if (data.type === 'tool_end') {
+              setCurrentTool(null);
+            } else if (data.type === 'requires_approval') {
+              setMessages((prev) => [...prev, { role: 'bot', text: data.answer_msg }]);
+              setApprovalData({ ...data, approvals: data.approvals.map((a) => ({ ...a, approved: true })) });
+            } else if (data.type === 'final_answer') {
+              setMessages((prev) => [...prev, { role: 'bot', text: data.content }]);
+            } else if (data.type === 'error') {
+              setMessages((prev) => [...prev, { role: 'bot', text: data.message }]);
             }
+          } catch (err) {
+            console.error('Error parsing JSON from stream:', err);
           }
         }
       }
     } catch (err) {
-      console.error("Chat error:", err);
-      setMessages(prev => [...prev, { role: 'bot', text: 'Sorry, I encountered an error answering your question.' }]);
+      console.error('Chat error:', err);
+      setMessages((prev) => [...prev, { role: 'bot', text: 'Sorry, I encountered an error answering your question.' }]);
     } finally {
       setLoading(false);
       setCurrentTool(null);
@@ -175,25 +205,24 @@ export default function Chatbot({ API_BASE, showToast }) {
   const handleApproveSave = async () => {
     if (!approvalData) return;
     setLoading(true);
-    
-    const dataToSend = {
+    const payload = {
       session_id: activeSession.id,
-      approvals: approvalData.approvals.map(item => ({
-          tool_call_id: item.tool_call_id,
-          question: item.question,
-          answer: item.answer,
-          approved: item.approved
-      }))
+      approvals: approvalData.approvals.map((item) => ({
+        tool_call_id: item.tool_call_id,
+        question: item.question,
+        answer: item.answer,
+        approved: item.approved,
+      })),
     };
-    
     setApprovalData(null);
     try {
-      const res = await axios.post(`${API_BASE}/chat/approve-save`, dataToSend);
-      setMessages(prev => [...prev, { role: 'bot', text: res.data.answer }]);
-      showToast("Q&A processed successfully");
+      const res = await axios.post(`${API_BASE}/chat/approve-save`, payload);
+      setMessages((prev) => [...prev, { role: 'bot', text: res.data.answer }]);
+      await refreshCollection();
+      showToast('Saved to your collection');
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, { role: 'bot', text: 'Error processing approval.' }]);
+      setMessages((prev) => [...prev, { role: 'bot', text: 'Error processing approval.' }]);
     } finally {
       setLoading(false);
     }
@@ -202,7 +231,7 @@ export default function Chatbot({ API_BASE, showToast }) {
   const handleRenameSubmit = async () => {
     if (editTitle.trim() && editTitle !== activeSession?.title) {
       await updateSessionTitle(activeSession.id, editTitle.trim());
-      showToast("Chat renamed");
+      showToast('Chat renamed');
     }
     setIsEditingTitle(false);
   };
@@ -213,177 +242,272 @@ export default function Chatbot({ API_BASE, showToast }) {
     setIsEditingTitle(true);
   };
 
-  return (
-    <div className="flex flex-col h-full relative">
-      <header className="flex items-center justify-between px-8 py-5 border-b border-[#E7E5DF] shrink-0">
-        <div className="flex-1 min-w-0 pr-4">
-          {isEditingTitle ? (
-            <input
-              style={displayFont}
-              autoFocus
-              className="w-full bg-white border border-[#1F6E4A] rounded-[6px] px-2 py-1 text-[19px] font-semibold text-[#17170F] outline-none"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
-              onBlur={handleRenameSubmit}
-            />
-          ) : (
-            <h1 
-              style={displayFont} 
-              className="text-[#17170F] text-[19px] font-semibold truncate cursor-text"
-              onClick={startEditing}
-              title="Click to rename"
-            >
-              {activeSession ? activeSession.title : "New Chat"}
-            </h1>
-          )}
-          <p style={bodyFont} className="text-[#6E6C63] text-[12.5px] mt-0.5">
-            {isNew ? "Not yet grounded — ask a question to begin" : "Grounded in your knowledge base"}
-          </p>
-        </div>
-        <button 
-          onClick={startEditing}
-          title="Rename Chat"
-          className="inline-flex items-center justify-center text-[#17170F] w-8 h-8 rounded-[8px] border border-[#E7E5DF] transition-colors duration-150 hover:bg-[#F1F0EB] active:scale-[0.97]"
-        >
-          <Pencil size={13} />
-        </button>
-      </header>
+  const headline = isNew || !activeSession ? meta.headline : activeSession.title;
 
-      <div className="flex-1 overflow-y-auto px-8 py-7 flex flex-col gap-5 max-w-3xl w-full mx-auto relative">
-        {isNew && messages.length === 1 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center gap-2 py-16 animate-[fadeIn_0.5s_ease]">
-            <div className="w-10 h-10 rounded-full border border-[#E7E5DF] mb-1 overflow-hidden shrink-0">
-              <img src="/favicon.png" alt="AI" className="w-full h-full object-cover" />
-            </div>
-            <p style={displayFont} className="text-[#17170F] text-[15px] font-medium">
-              Start a new prep session
-            </p>
-            <p style={bodyFont} className="text-[#A6A399] text-[12.5px] max-w-xs">
-              Ask an interview question, or paste one you're prepping for.
-            </p>
-          </div>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '44px 56px 0', flexShrink: 0 }}>
+        <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 10px' }}>
+          {meta.kicker}
+        </p>
+
+        {isEditingTitle ? (
+          <input
+            autoFocus
+            className="input"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleRenameSubmit()}
+            onBlur={handleRenameSubmit}
+            style={{
+              fontFamily: 'var(--font-heading)', fontWeight: 800,
+              fontSize: 28, letterSpacing: '-.03em', minHeight: 48,
+              padding: '4px 12px', marginBottom: 18, maxWidth: '24ch',
+            }}
+          />
         ) : (
-          <>
-            {messages.map((m, idx) => (
-              <ChatMessage key={idx} msg={m} userInitials={userInitials} />
-            ))}
-            {currentTool && <ToolRow label={currentTool} />}
-            <div ref={endOfMessagesRef} />
-          </>
+          <h1
+            onClick={isNew ? undefined : startEditing}
+            title={isNew ? undefined : 'Click to rename'}
+            style={{
+              fontSize: 'clamp(28px,3vw,38px)', lineHeight: 1.05, letterSpacing: '-.03em',
+              margin: '0 0 18px', maxWidth: '24ch',
+              cursor: isNew ? 'default' : 'text',
+              paddingRight: 180,
+            }}
+          >
+            {headline}
+          </h1>
         )}
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingBottom: 20 }}>
+          <div style={{ display: 'inline-flex', background: 'var(--color-bg)', borderRadius: 999, padding: 4, boxShadow: 'var(--shadow-sm)' }}>
+            {Object.entries(MODES).map(([id, m]) => (
+              <button
+                key={id}
+                onClick={() => setMode(id)}
+                style={{
+                  font: 'inherit', fontSize: 13, padding: '8px 16px', borderRadius: 999,
+                  border: 0, cursor: 'pointer',
+                  background: mode === id ? 'var(--color-accent)' : 'transparent',
+                  color: mode === id ? '#fff' : 'var(--color-text)',
+                }}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
+          {mode === 'pressure' && (
+            projects.length > 0 ? (
+              <>
+                <span className="text-muted" style={{ fontSize: 13, marginLeft: 8 }}>on</span>
+                {projects.map((name) => {
+                  const active = project === name;
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => setProject(active ? null : name)}
+                      style={{
+                        font: 'inherit', fontSize: 13, padding: '8px 14px', borderRadius: 999,
+                        cursor: 'pointer', border: '1px solid var(--color-divider)',
+                        background: active ? 'var(--color-accent)' : 'transparent',
+                        color: active ? '#fff' : 'var(--color-text)',
+                      }}
+                    >
+                      {name}
+                    </button>
+                  );
+                })}
+              </>
+            ) : (
+              <span className="text-muted" style={{ fontSize: 13, marginLeft: 8 }}>
+                Upload a resume to pick a project.
+              </span>
+            )
+          )}
+        </div>
       </div>
 
-      <div className="px-8 pb-6 pt-2 shrink-0 bg-[#FAFAF8]">
-        <form onSubmit={handleSend} className="max-w-3xl mx-auto flex items-center gap-2 rounded-[10px] border border-[#E7E5DF] bg-white px-4 py-1.5 focus-within:border-[#1F6E4A] transition-colors">
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '8px 56px 24px' }}>
+        <div style={{ maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 22 }}>
+          {messages.map((m, idx) => (
+            <Message key={idx} msg={m} initials={initials} />
+          ))}
+
+          {approvalData && (
+            <ApprovalCard
+              data={approvalData}
+              setData={setApprovalData}
+              onSave={handleApproveSave}
+            />
+          )}
+
+          {currentTool && (
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--color-accent)', opacity: 0.5, flexShrink: 0 }} />
+              <span className="text-muted" style={{ fontSize: 13, fontStyle: 'italic' }}>{currentTool}…</span>
+            </div>
+          )}
+
+          <div ref={endRef} />
+        </div>
+      </div>
+
+      <div style={{ padding: '12px 56px 28px', flexShrink: 0 }}>
+        <form
+          onSubmit={(e) => { e.preventDefault(); sendMessage(input); }}
+          style={{
+            maxWidth: 720, display: 'flex', gap: 8, background: 'var(--color-bg)',
+            borderRadius: 999, padding: '6px 6px 6px 20px',
+            boxShadow: 'var(--shadow-md)', alignItems: 'center',
+          }}
+        >
           <input
-            style={bodyFont}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={loading || !activeSession}
-            placeholder="Ask a follow-up, or say “save that as a Q&A”…"
-            className="flex-1 bg-transparent outline-none text-[13.5px] text-[#17170F] placeholder:text-[#A6A399] py-2 disabled:opacity-50"
+            placeholder={meta.placeholder}
+            style={{
+              flex: 1, border: 0, background: 'transparent', outline: 'none',
+              fontSize: 15, color: 'inherit', minHeight: 40,
+            }}
           />
-          <button 
+          <button
             type="submit"
+            className="btn btn-primary"
             disabled={loading || !activeSession || !input.trim()}
-            className="w-8 h-8 rounded-[7px] bg-[#1F6E4A] flex items-center justify-center text-white transition-all active:scale-90 hover:bg-[#195C3D] shrink-0 disabled:opacity-50 disabled:active:scale-100"
+            style={{ width: 44, height: 44, padding: 0, justifyContent: 'center', flexShrink: 0 }}
           >
-            <Send size={14} />
+            <Send size={16} />
           </button>
         </form>
       </div>
+    </div>
+  );
+}
 
-      {/* Approval Modal - Styled to match Ink & Paper */}
-      {approvalData && (
-        <div className="fixed inset-0 bg-[#17170F]/40 z-[999] flex items-center justify-center p-6 animate-[fadeIn_0.2s_ease]">
-          <div className="bg-white w-full max-w-3xl max-h-[85vh] flex flex-col rounded-[16px] border border-[#E7E5DF] shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#E7E5DF] bg-[#FAFAF8]">
-              <div>
-                <h3 style={displayFont} className="text-[#17170F] text-[18px] font-semibold">
-                  Review {approvalData.approvals.length} Drafted Q&A{approvalData.approvals.length > 1 ? 's' : ''}
-                </h3>
-                <p style={bodyFont} className="text-[#6E6C63] text-[13px] mt-0.5">
-                  Select the items you want to permanently add to your knowledge base.
-                </p>
-              </div>
-              <button onClick={() => setApprovalData(null)} className="w-8 h-8 rounded-[8px] flex items-center justify-center text-[#6E6C63] hover:bg-[#E7E5DF] transition-colors">
-                 <X size={16} />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-5 bg-white">
-              {approvalData.approvals.map((item, index) => (
-                <div key={item.tool_call_id} className={`p-5 rounded-[12px] border transition-colors ${item.approved ? 'border-[#1F6E4A] bg-[#FAFAF8]' : 'border-[#E7E5DF] opacity-60'}`}>
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative flex items-center justify-center">
-                      <input 
-                        type="checkbox" 
-                        checked={item.approved} 
-                        onChange={(e) => {
-                          const newApprovals = [...approvalData.approvals];
-                          newApprovals[index].approved = e.target.checked;
-                          setApprovalData({...approvalData, approvals: newApprovals});
-                        }}
-                        className="peer appearance-none w-5 h-5 border border-[#C7C4B9] rounded-[4px] checked:bg-[#1F6E4A] checked:border-[#1F6E4A] transition-colors group-hover:border-[#1F6E4A]"
-                      />
-                      <Check size={12} className="absolute text-white opacity-0 peer-checked:opacity-100 pointer-events-none" />
-                    </div>
-                    <span style={bodyFont} className="text-[14px] font-semibold text-[#17170F]">
-                      Approve this Q&A
-                    </span>
-                  </label>
-                  
-                  <div className="mt-4 pl-8 flex flex-col gap-4">
-                    <div>
-                      <p style={bodyFont} className="text-[#6E6C63] text-[11px] font-semibold uppercase tracking-wider mb-1">Question</p>
-                      <textarea 
-                        value={item.question}
-                        onChange={(e) => {
-                          const newApprovals = [...approvalData.approvals];
-                          newApprovals[index].question = e.target.value;
-                          setApprovalData({...approvalData, approvals: newApprovals});
-                        }}
-                        className="w-full bg-white border border-[#E7E5DF] rounded-[8px] p-2.5 text-[13.5px] text-[#17170F] outline-none focus:border-[#1F6E4A]"
-                        rows={2}
-                      />
-                    </div>
-                    <div>
-                      <p style={bodyFont} className="text-[#6E6C63] text-[11px] font-semibold uppercase tracking-wider mb-1">Answer</p>
-                      <textarea 
-                        value={item.answer}
-                        onChange={(e) => {
-                          const newApprovals = [...approvalData.approvals];
-                          newApprovals[index].answer = e.target.value;
-                          setApprovalData({...approvalData, approvals: newApprovals});
-                        }}
-                        className="w-full bg-white border border-[#E7E5DF] rounded-[8px] p-2.5 text-[13.5px] text-[#17170F] outline-none focus:border-[#1F6E4A] min-h-[120px]"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div className="px-6 py-4 border-t border-[#E7E5DF] flex items-center justify-end gap-3 bg-[#FAFAF8]">
-              <button 
-                onClick={() => setApprovalData(null)}
-                style={bodyFont}
-                className="inline-flex items-center gap-1.5 text-[#17170F] text-[13px] font-medium rounded-[8px] px-4 py-2.5 border border-[#E7E5DF] transition-colors hover:bg-white active:scale-[0.97]"
+function Message({ msg, initials }) {
+  const isUser = msg.role === 'user';
+  return (
+    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexDirection: isUser ? 'row-reverse' : 'row' }}>
+      <div
+        style={{
+          width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 11, fontWeight: 800,
+          background: isUser ? 'var(--color-surface)' : 'var(--color-accent)',
+          color: isUser ? 'var(--color-text)' : '#fff',
+        }}
+      >
+        {isUser ? initials : 'AI'}
+      </div>
+      <div
+        className={isUser ? undefined : 'markdown-content'}
+        style={{
+          maxWidth: '78%', fontSize: 15, lineHeight: 1.6,
+          padding: isUser ? '14px 18px' : '18px 22px',
+          borderRadius: 20,
+          background: isUser ? 'var(--color-text)' : 'var(--color-bg)',
+          color: isUser ? 'var(--color-bg)' : 'inherit',
+          boxShadow: isUser ? 'none' : 'var(--shadow-sm)',
+          whiteSpace: isUser ? 'pre-line' : 'normal',
+        }}
+      >
+        {isUser ? msg.text : (
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw]}>
+            {msg.text}
+          </ReactMarkdown>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ApprovalCard({ data, setData, onSave }) {
+  const update = (index, patch) => {
+    const approvals = [...data.approvals];
+    approvals[index] = { ...approvals[index], ...patch };
+    setData({ ...data, approvals });
+  };
+
+  return (
+    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+      <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: 'var(--color-accent)' }} />
+      <div
+        style={{
+          maxWidth: '78%', background: 'var(--color-bg)', borderRadius: 20,
+          padding: '20px 22px', boxShadow: 'var(--shadow-sm)',
+          display: 'flex', flexDirection: 'column', gap: 14,
+        }}
+      >
+        <span style={{ fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--color-accent)' }}>
+          Drafted for your collection
+        </span>
+
+        {data.approvals.map((item, index) => (
+          <div
+            key={item.tool_call_id}
+            style={{
+              display: 'flex', flexDirection: 'column', gap: 8,
+              opacity: item.approved ? 1 : 0.5,
+              paddingTop: index > 0 ? 14 : 0,
+              borderTop: index > 0 ? '1px solid var(--color-divider)' : 'none',
+            }}
+          >
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12 }}>
+              <span
+                style={{
+                  width: 18, height: 18, borderRadius: 6, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: item.approved ? 'var(--color-accent)' : 'transparent',
+                  border: item.approved ? 'none' : '1px solid var(--color-divider)',
+                  color: '#fff',
+                }}
               >
-                Cancel
-              </button>
-              <button 
-                onClick={handleApproveSave}
-                style={bodyFont}
-                className="inline-flex items-center gap-1.5 bg-[#1F6E4A] text-white text-[13px] font-semibold rounded-[8px] px-5 py-2.5 transition-all active:scale-[0.97] hover:bg-[#195C3D]"
-              >
-                Confirm & Save
-              </button>
-            </div>
+                {item.approved && <Check size={12} />}
+              </span>
+              <input
+                type="checkbox"
+                checked={item.approved}
+                onChange={(e) => update(index, { approved: e.target.checked })}
+                style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+              />
+              <span className="text-muted">Include this pair</span>
+            </label>
+
+            <textarea
+              value={item.question}
+              onChange={(e) => update(index, { question: e.target.value })}
+              rows={2}
+              className="input"
+              style={{
+                fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 16,
+                lineHeight: 1.25, letterSpacing: '-.01em', borderRadius: 14,
+                padding: '10px 14px', minHeight: 56, background: 'var(--color-surface)',
+              }}
+            />
+            <textarea
+              value={item.answer}
+              onChange={(e) => update(index, { answer: e.target.value })}
+              className="input"
+              style={{
+                fontSize: 13.5, lineHeight: 1.55, borderRadius: 14,
+                padding: '10px 14px', minHeight: 120, background: 'var(--color-surface)',
+              }}
+            />
           </div>
+        ))}
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+          <button className="btn btn-primary" onClick={onSave} disabled={!data.approvals.some((a) => a.approved)}>
+            Save it
+          </button>
+          <button className="btn btn-ghost" onClick={() => setData(null)}>
+            <X size={14} />Discard
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

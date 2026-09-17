@@ -1,64 +1,118 @@
-import React, { useState } from "react";
-import { X, Check, Upload, FileText, Loader2 } from "lucide-react";
-import axios from "axios";
+import { useEffect, useRef, useState } from 'react';
+import axios from 'axios';
+import { X, Upload, Sparkles } from 'lucide-react';
+import { useCollection } from '../contexts/CollectionContext';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+export default function AddDrawer({ open, onClose, API_BASE, showToast }) {
+  const { refresh, refreshProgress } = useCollection();
+  const fileRef = useRef(null);
 
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [tags, setTags] = useState([]);
+  const [tagDraft, setTagDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [starUsed, setStarUsed] = useState(false);
 
-export default function AddDrawer({ open, onClose, API_BASE, showToast, onAdded }) {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [pdfFile, setPdfFile] = useState(null);
-  const [pdfLoading, setPdfLoading] = useState(false);
+  const reset = () => {
+    setQuestion('');
+    setAnswer('');
+    setTags([]);
+    setTagDraft('');
+    setStarUsed(false);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  // Suggest tags once the question settles, and only while none are chosen.
+  useEffect(() => {
+    if (!open || tags.length > 0 || question.trim().length < 12) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await axios.post(`${API_BASE}/qa/suggest-tags`, { question });
+        if (res.data.tags?.length) setTags(res.data.tags);
+      } catch {
+        /* suggestions are a convenience — silence is fine */
+      }
+    }, 900);
+    return () => clearTimeout(timer);
+  }, [open, question, tags.length, API_BASE]);
+
+  if (!open) return null;
+
+  const addTag = (label) => {
+    const clean = label.trim().slice(0, 32);
+    if (clean && !tags.includes(clean)) setTags([...tags, clean]);
+    setTagDraft('');
+  };
 
   const handleSave = async () => {
     if (!question.trim() || !answer.trim()) {
-      showToast("Question and Answer are required.");
+      showToast('Question and answer are required.');
       return;
     }
-    setLoading(true);
+    setSaving(true);
     try {
-      await axios.post(`${API_BASE}/qa`, {
-        question,
-        answer
-      });
-      showToast("Q&A Added to Collection");
-      setQuestion("");
-      setAnswer("");
-      if (onAdded) onAdded();
+      const res = await axios.post(`${API_BASE}/qa`, { question, answer, tags });
+      showToast(res.data.message || 'Added to your collection');
+      reset();
+      await refresh();
+      refreshProgress();
       onClose();
     } catch (err) {
       console.error(err);
-      showToast("Failed to add Q&A");
+      showToast(err.response?.data?.detail || 'Failed to add Q&A');
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
-  const handlePdfUpload = async () => {
-    if (!pdfFile) return;
-    
-    setPdfLoading(true);
+  const handleFile = async (file) => {
+    if (!file) return;
+    setUploading(true);
     const formData = new FormData();
-    formData.append('file', pdfFile);
-    
+    formData.append('file', file);
     try {
       const res = await axios.post(`${API_BASE}/qa/upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
       showToast(res.data.message);
       if (res.data.added > 0) {
-        if (onAdded) onAdded();
+        await refresh();
+        refreshProgress();
         onClose();
       }
-      setPdfFile(null);
     } catch (err) {
-      console.error("Error uploading PDF:", err);
-      showToast(err.response?.data?.detail || "Failed to upload file");
+      console.error('Error uploading file:', err);
+      showToast(err.response?.data?.detail || 'Failed to upload file');
     } finally {
-      setPdfLoading(false);
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const handleDraftStar = async () => {
+    if (!question.trim()) {
+      showToast('Write the question first.');
+      return;
+    }
+    setDrafting(true);
+    try {
+      const res = await axios.post(`${API_BASE}/qa/draft-star`, { question });
+      setAnswer(res.data.answer);
+      setStarUsed(true);
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.detail || 'Could not draft an answer');
+    } finally {
+      setDrafting(false);
     }
   };
 
@@ -66,106 +120,166 @@ export default function AddDrawer({ open, onClose, API_BASE, showToast, onAdded 
     <>
       <div
         onClick={onClose}
-        className={`fixed inset-0 bg-[#17170F]/35 z-40 transition-opacity duration-200 ${
-          open ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 90,
+          background: 'color-mix(in srgb, var(--color-neutral-900) 40%, transparent)',
+          backdropFilter: 'blur(6px)',
+        }}
       />
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-white z-50 border-l border-[#E7E5DF] flex flex-col transition-transform duration-300 ${
-          open ? "translate-x-0" : "translate-x-full"
-        }`}
+        style={{
+          position: 'fixed', top: 14, right: 14, bottom: 14,
+          width: 'min(500px, calc(100% - 28px))',
+          background: 'var(--color-bg)', zIndex: 95, borderRadius: 28,
+          display: 'flex', flexDirection: 'column',
+          boxShadow: 'var(--shadow-lg)', animation: 'rise .3s ease',
+        }}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#E7E5DF]">
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '28px 28px 8px' }}>
           <div>
-            <h2 style={displayFont} className="text-[#17170F] text-[17px] font-semibold">
-              Add to collection
-            </h2>
-            <p style={bodyFont} className="text-[#6E6C63] text-[12px] mt-0.5">
-              Saved pairs are used to ground every future answer.
-            </p>
+            <h3 style={{ fontSize: 26, letterSpacing: '-.025em', margin: '0 0 4px' }}>Add to your collection</h3>
+            <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>Saved pairs ground every future answer.</p>
           </div>
           <button
+            className="btn btn-ghost"
             onClick={onClose}
-            className="w-7 h-7 rounded-[6px] flex items-center justify-center text-[#6E6C63] hover:bg-[#F1F0EB] transition-colors"
+            style={{ width: 36, height: 36, padding: 0, justifyContent: 'center', color: 'var(--color-text)' }}
           >
-            <X size={15} />
+            <X size={16} />
           </button>
         </div>
 
-
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-          <div className="bg-[#FAFAF8] border border-[#E7E5DF] rounded-[10px] p-4">
-            <h3 style={bodyFont} className="text-[#17170F] text-[13px] font-semibold mb-3 flex items-center gap-1.5">
-              <FileText size={14} className="text-[#1F6E4A]" /> Bulk Upload
-            </h3>
-            <div className="flex flex-col gap-3">
-              <input 
-                type="file" 
-                accept="application/pdf, image/png, image/jpeg, image/webp"
-                onChange={(e) => setPdfFile(e.target.files[0])}
-                disabled={pdfLoading}
-                className="w-full text-[12px] text-[#6E6C63] file:mr-3 file:py-1.5 file:px-3 file:rounded-[6px] file:border-0 file:text-[12px] file:font-semibold file:bg-[#1F6E4A] file:text-white hover:file:bg-[#195C3D] transition-colors cursor-pointer disabled:opacity-50"
-              />
-              <button 
-                onClick={handlePdfUpload}
-                disabled={!pdfFile || pdfLoading}
-                className="inline-flex items-center justify-center gap-1.5 bg-[#17170F] text-white text-[12px] font-semibold rounded-[6px] px-3 py-2 transition-all active:scale-[0.98] hover:bg-[#2A2A20] disabled:opacity-50 disabled:active:scale-100"
-              >
-                {pdfLoading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                {pdfLoading ? "Extracting..." : "Upload & Extract"}
-              </button>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 28px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <div
+            style={{
+              background: 'var(--color-surface)', borderRadius: 18, padding: '18px 20px',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}
+          >
+            <div
+              style={{
+                width: 40, height: 40, borderRadius: '50%', background: 'var(--color-bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}
+            >
+              <Upload size={18} />
             </div>
+            <div style={{ flex: 1, fontSize: 13.5, lineHeight: 1.4 }}>
+              <b>Have a PDF?</b>
+              <br />
+              <span className="text-muted">Pairs are extracted, deduplicated and tagged.</span>
+            </div>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf, image/png, image/jpeg, image/webp"
+              onChange={(e) => handleFile(e.target.files[0])}
+              style={{ display: 'none' }}
+            />
+            <button
+              className="btn"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+              style={{ background: 'var(--color-bg)', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-sm)' }}
+            >
+              {uploading ? 'Extracting…' : 'Choose file'}
+            </button>
           </div>
-          
-          <div className="h-px bg-[#E7E5DF] w-full" />
-          
-          <div className="flex flex-col gap-5">
-          <div>
-            <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-              Question
-            </label>
+
+          <div className="field">
+            <label>Question</label>
             <textarea
+              rows={2}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              rows={2}
               placeholder="e.g. Tell me about a time you missed a deadline."
-              style={bodyFont}
-              className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] p-3 text-[13px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] resize-none"
+              className="input"
+              style={{ minHeight: 72, borderRadius: 16, padding: '12px 16px' }}
             />
           </div>
 
-          <div>
-            <label style={bodyFont} className="text-[#17170F] text-[12.5px] font-semibold mb-1.5 block">
-              Answer
-            </label>
+          <div className="field">
+            <label>Answer</label>
             <textarea
+              rows={7}
               value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
-              rows={6}
-              placeholder="Write in STAR format — situation, task, action, result."
-              style={bodyFont}
-              className="w-full bg-[#FAFAF8] border border-[#E7E5DF] rounded-[8px] p-3 text-[13px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A] resize-none"
+              onChange={(e) => { setAnswer(e.target.value); setStarUsed(false); }}
+              placeholder="Leave blank and the coach drafts one — or pull a STAR answer from your resume."
+              className="input"
+              style={{ minHeight: 170, borderRadius: 16, padding: '12px 16px' }}
             />
+            <button
+              className="btn btn-ghost"
+              onClick={handleDraftStar}
+              disabled={drafting}
+              style={{ fontSize: 13, padding: '8px 4px', marginTop: 4 }}
+            >
+              <Sparkles size={14} />
+              {drafting ? 'Drafting…' : 'Draft a STAR answer from my resume'}
+            </button>
+            {starUsed && (
+              <p className="text-muted" style={{ fontSize: 12, margin: '2px 0 0' }}>
+                Drafted from your resume. Edit freely before saving.
+              </p>
+            )}
           </div>
 
+          <div className="field">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <label>Tags</label>
+              <span className="text-muted" style={{ fontSize: 11 }}>Suggested as you type · click to remove</span>
+            </div>
+            <div
+              style={{
+                display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center',
+                minHeight: 44, padding: '8px 12px',
+                background: 'var(--color-neutral-100)', borderRadius: 16,
+                boxShadow: 'var(--shadow-sm)',
+              }}
+            >
+              {tags.map((t) => (
+                <button
+                  key={t}
+                  className="tag tag-accent"
+                  onClick={() => setTags(tags.filter((x) => x !== t))}
+                  style={{ border: 0, cursor: 'pointer', font: 'inherit', fontSize: 12, padding: '5px 12px' }}
+                >
+                  {t} ×
+                </button>
+              ))}
+              <input
+                value={tagDraft}
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagDraft); }
+                  if (e.key === 'Backspace' && !tagDraft && tags.length) setTags(tags.slice(0, -1));
+                }}
+                onBlur={() => tagDraft && addTag(tagDraft)}
+                placeholder="Add tag"
+                style={{
+                  border: 0, background: 'transparent', fontSize: 13, outline: 'none',
+                  flex: 1, minWidth: 80, color: 'inherit',
+                }}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-[#E7E5DF] flex items-center justify-end gap-2.5">
+        <div style={{ padding: '16px 28px 28px', display: 'flex', gap: 8 }}>
           <button
-            style={bodyFont}
-            className="inline-flex items-center gap-1.5 text-[#17170F] text-[13px] font-medium rounded-[8px] px-3.5 py-2 border border-[#E7E5DF] transition-colors duration-150 hover:bg-[#F1F0EB] active:scale-[0.97]"
-            onClick={onClose}
+            className="btn btn-primary"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ minHeight: 46, padding: '0 22px' }}
           >
-            Cancel
+            {saving ? 'Saving…' : 'Save to collection'}
           </button>
           <button
-            style={bodyFont}
-            disabled={loading}
-            className="inline-flex items-center gap-1.5 bg-[#1F6E4A] text-white text-[13px] font-semibold rounded-[8px] px-4 py-2.5 transition-all duration-150 active:scale-[0.97] hover:bg-[#195C3D] disabled:opacity-50"
-            onClick={handleSave}
+            className="btn"
+            onClick={onClose}
+            style={{ minHeight: 46, background: 'var(--color-surface)' }}
           >
-            {loading ? "Saving..." : <><Check size={14} /> Save to collection</>}
+            Cancel
           </button>
         </div>
       </div>

@@ -1,13 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_BASE } from '../lib/api';
 
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
-
-const API_BASE = import.meta.env.DEV 
-  ? 'http://localhost:8000/api' 
-  : 'https://interview-rag-backend.onrender.com/api';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);

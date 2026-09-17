@@ -1,192 +1,282 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
-import { Search, Plus, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { useCollection } from '../contexts/CollectionContext';
 
-const displayFont = { fontFamily: "'Fraunces', serif" };
-const bodyFont = { fontFamily: "'Public Sans', sans-serif" };
+const WORDS = ['No', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+  'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen',
+  'Eighteen', 'Nineteen', 'Twenty'];
 
-function QACard({ c, onDelete, onClick }) {
-  return (
-    <div 
-      onClick={() => onClick(c)}
-      className="cursor-pointer group relative bg-white border border-[#E7E5DF] rounded-[12px] overflow-hidden hover:border-[#1F6E4A] hover:shadow-sm transition-all flex flex-col h-[180px]"
-    >
-      {/* perforated edge — the flashcard signature */}
-      <div className="h-3 border-b border-dashed border-[#E7E5DF] bg-[#FAFAF8] flex items-center px-3 shrink-0">
-        <div className="w-1.5 h-1.5 rounded-full bg-[#E7E5DF] -ml-1" />
-      </div>
+const spell = (n) => (n <= 20 ? WORDS[n] : String(n));
 
-      <div className="p-5 flex flex-col flex-1 min-h-0">
-        <div className="flex items-start justify-between gap-3 mb-3 shrink-0">
-          <h3 style={displayFont} className="text-[#17170F] font-semibold text-[15px] leading-snug line-clamp-2">
-            {c.questions && c.questions.length > 0 ? c.questions[0] : "Untitled Question"}
-          </h3>
-          <button 
-            onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
-            className="p-1 -mr-1 -mt-1 text-[#A6A399] opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#D97757] shrink-0 rounded-[5px] hover:bg-[#F1F0EB]"
-          >
-            <Trash2 size={14} />
-          </button>
-        </div>
-        <p style={bodyFont} className="text-[#6E6C63] text-[13px] leading-relaxed line-clamp-4">
-          {c.answer || "No answer provided."}
-        </p>
-      </div>
-    </div>
-  );
-}
+const questionOf = (qa) => (qa.questions?.length ? qa.questions[0] : 'Untitled question');
 
-function ViewModal({ qa, onClose }) {
-  if (!qa) return null;
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-[#17170F]/40 backdrop-blur-sm animate-[fadeIn_0.2s_ease]">
-      <div 
-        className="bg-white w-full max-w-2xl max-h-[90vh] flex flex-col rounded-[16px] shadow-2xl border border-[#E7E5DF] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E7E5DF] bg-[#FAFAF8] shrink-0">
-          <h2 style={displayFont} className="text-[#17170F] text-[16px] font-semibold flex items-center gap-2">
-            Knowledge Base Entry
-          </h2>
-          <button onClick={onClose} className="p-1.5 rounded-[8px] text-[#A6A399] hover:bg-[#E7E5DF] hover:text-[#17170F] transition-colors">
-            <X size={16} />
-          </button>
-        </div>
-        
-        <div className="p-6 md:p-8 overflow-y-auto">
-          <div className="mb-8">
-            <h3 style={bodyFont} className="text-[#6E6C63] text-[11px] font-bold uppercase tracking-wider mb-2">Question</h3>
-            <p style={displayFont} className="text-[#17170F] text-[18px] md:text-[20px] font-medium leading-relaxed whitespace-pre-wrap">
-              {qa.questions && qa.questions.length > 0 ? qa.questions[0] : "Untitled Question"}
-            </p>
-          </div>
-          
-          <div>
-            <h3 style={bodyFont} className="text-[#6E6C63] text-[11px] font-bold uppercase tracking-wider mb-2">Answer</h3>
-            <div style={bodyFont} className="text-[#17170F] text-[14.5px] leading-[1.7] whitespace-pre-wrap">
-              {qa.answer}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+const easeLabel = (qa) => {
+  if (!qa.review_count) return 'never';
+  return { again: 'Again', good: 'Good', easy: 'Easy' }[qa.last_ease] || '—';
+};
 
-export default function Collection({ API_BASE, showToast, refreshKey, onAddClick }) {
-  const [qas, setQas] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [viewingQA, setViewingQA] = useState(null);
+const dueLabel = (qa) => {
+  if (!qa.due_date) return 'today';
+  const today = new Date().toISOString().slice(0, 10);
+  if (qa.due_date <= today) return 'today';
+  const days = Math.round((new Date(qa.due_date) - new Date(today)) / 86400000);
+  if (days === 1) return 'tomorrow';
+  if (days < 30) return `in ${days}d`;
+  return new Date(qa.due_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
-  const fetchQAs = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/qa`);
-      setQas(res.data);
-    } catch (err) {
-      console.error(err);
-      showToast("Failed to load Collection");
-    } finally {
-      setLoading(false);
-    }
-  };
+export default function Collection({ onAddClick }) {
+  const navigate = useNavigate();
+  const { qas, loading, due, dueCount, allTags, setViewing } = useCollection();
+  const [search, setSearch] = useState('');
+  const [tag, setTag] = useState(null);
 
   useEffect(() => {
-    document.title = "Collections - PrepAI";
-    fetchQAs();
-  }, [refreshKey]);
+    document.title = 'Collections — PrepAI';
+  }, []);
 
-  const handleDelete = async (id) => {
-    if(!window.confirm('Delete this Q&A?')) return;
-    try {
-      await axios.delete(`${API_BASE}/qa/${id}`);
-      setQas(qas.filter(qa => qa.id !== id));
-      showToast("Q&A deleted");
-    } catch(err) {
-      console.error(err);
-      showToast("Failed to delete Q&A");
-    }
-  };
+  const filtering = Boolean(search.trim() || tag);
 
-  const filteredQAs = useMemo(() => {
-    return qas.filter(qa => {
-      const q = (qa.questions && qa.questions.length > 0 ? qa.questions[0] : "").toLowerCase();
-      const a = (qa.answer || "").toLowerCase();
-      const search = (searchTerm || "").toLowerCase();
-      return q.includes(search) || a.includes(search);
+  const matches = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return qas.filter((qa) => {
+      if (tag && !(qa.tags || []).includes(tag)) return false;
+      if (!needle) return true;
+      const haystack = `${(qa.questions || []).join(' ')} ${qa.answer || ''}`.toLowerCase();
+      return haystack.includes(needle);
     });
-  }, [qas, searchTerm]);
+  }, [qas, search, tag]);
+
+  // The due band only leads when nothing is being filtered — a search should
+  // show one flat list of results, not split them in two.
+  const showDue = !filtering && dueCount > 0;
+  const hero = showDue ? due[0] : null;
+  const dueRest = showDue ? due.slice(1, 3) : [];
+  const heroIds = new Set([hero?.id, ...dueRest.map((c) => c.id)].filter(Boolean));
+  const rest = matches.filter((qa) => !heroIds.has(qa.id));
 
   if (loading) {
-    return <div className="p-8 text-[#A6A399]" style={bodyFont}>Loading your knowledge base...</div>;
+    return <div className="text-muted" style={{ padding: 56 }}>Loading your collection…</div>;
   }
 
-  return (
-    <div className="h-full overflow-y-auto px-8 py-7">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 style={displayFont} className="text-[#17170F] text-[22px] font-semibold">
-            Collections
-          </h1>
-          <p style={bodyFont} className="text-[#6E6C63] text-[13px] mt-1">
-            {qas.length} saved pairs — referenced automatically during every chat.
-          </p>
-        </div>
-        <button
-          style={bodyFont}
-          onClick={onAddClick}
-          className="inline-flex items-center gap-1.5 bg-[#1F6E4A] text-white text-[13px] font-semibold rounded-[8px] px-4 py-2.5 transition-all duration-150 active:scale-[0.97] hover:bg-[#195C3D]"
-        >
-          <Plus size={15} /> Add Q&A
+  if (qas.length === 0) {
+    return (
+      <div style={{ padding: '56px 56px 72px', maxWidth: 1040 }}>
+        <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+          Your collection · empty
+        </p>
+        <h1 style={{ fontSize: 'clamp(36px,4vw,54px)', lineHeight: 1, letterSpacing: '-.035em', margin: '0 0 16px', maxWidth: '20ch' }}>
+          Nothing to rehearse yet.
+        </h1>
+        <p style={{ fontSize: 17, lineHeight: 1.5, margin: '0 0 32px', maxWidth: '56ch', opacity: 0.8 }}>
+          Save the questions you meet — your own answers ground everything the coach says later.
+        </p>
+        <button className="btn btn-primary" onClick={onAddClick} style={{ minHeight: 48, padding: '0 24px' }}>
+          Add your first Q&amp;A
         </button>
       </div>
+    );
+  }
 
-      <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
-        <div className="relative w-full max-w-md shrink-0">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A6A399]" />
+  const restTitle = filtering
+    ? `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`
+    : showDue ? 'Everything else' : 'Your collection';
+  const restSub = filtering
+    ? tag ? `Tagged ${tag}${search.trim() ? ` · matching “${search.trim()}”` : ''}` : `Matching “${search.trim()}”`
+    : showDue ? 'Not due yet — still worth a skim.' : 'Every pair here grounds the coach.';
+
+  return (
+    <div style={{ padding: '56px 56px 72px', maxWidth: 1040 }}>
+      <p className="text-muted" style={{ fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', margin: '0 0 12px' }}>
+        Your collection · {qas.length} {qas.length === 1 ? 'pair' : 'pairs'}
+      </p>
+      <h1 style={{ fontSize: 'clamp(36px,4vw,54px)', lineHeight: 1, letterSpacing: '-.035em', margin: '0 0 16px', maxWidth: '20ch' }}>
+        {spell(qas.length)} {qas.length === 1 ? 'answer' : 'answers'} you can already say with confidence.
+      </h1>
+      <p style={{ fontSize: 17, lineHeight: 1.5, margin: '0 0 36px', maxWidth: '56ch', opacity: 0.8 }}>
+        Every pair here grounds the coach.{' '}
+        {dueCount > 0
+          ? `${dueCount} ${dueCount === 1 ? 'is' : 'are'} due for review today — start with those, or browse by topic.`
+          : 'Nothing is due today — you are ahead.'}
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 40 }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 240, maxWidth: 380 }}>
+          <Search
+            size={15}
+            style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}
+          />
           <input
-            style={bodyFont}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search collection"
-            className="w-full bg-white border border-[#E7E5DF] rounded-[8px] pl-8 pr-3 py-2 text-[13px] text-[#17170F] placeholder:text-[#A6A399] outline-none focus:border-[#1F6E4A]"
+            className="input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search questions and answers"
+            style={{ padding: '10px 16px 10px 40px', minHeight: 44, borderRadius: 999 }}
           />
         </div>
+        {allTags.length > 0 && (
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[null, ...allTags].map((t) => {
+              const active = tag === t;
+              return (
+                <button
+                  key={t ?? '__all'}
+                  onClick={() => setTag(t)}
+                  style={{
+                    font: 'inherit', fontSize: 13, padding: '8px 14px', borderRadius: 999,
+                    cursor: 'pointer', border: 0,
+                    background: active ? 'var(--color-accent)' : 'var(--color-bg)',
+                    color: active ? '#fff' : 'var(--color-text)',
+                  }}
+                >
+                  {t ?? 'All'}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {qas.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-full bg-[#E7E5DF] flex items-center justify-center mb-4">
-            <Plus size={24} className="text-[#A6A399]" />
-          </div>
-          <h2 style={displayFont} className="text-[17px] font-semibold text-[#17170F] mb-2">No Q&As yet</h2>
-          <p style={bodyFont} className="text-[#6E6C63] text-[13px] max-w-md mb-6">
-            Build your personal knowledge base by adding common interview questions and your STAR method answers.
+      {showDue && (
+        <>
+          <h2 style={{ fontSize: 22, letterSpacing: '-.02em', margin: '0 0 4px' }}>Due today</h2>
+          <p className="text-muted" style={{ fontSize: 14, margin: '0 0 20px' }}>
+            Spaced review says these are about to fade.
           </p>
-          <button
-            onClick={onAddClick}
-            style={bodyFont}
-            className="inline-flex items-center gap-1.5 bg-[#1F6E4A] text-white text-[13px] font-semibold rounded-[8px] px-4 py-2.5 transition-all duration-150 active:scale-[0.97] hover:bg-[#195C3D]"
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(0,1.4fr) minmax(0,1fr)',
+              gap: 16,
+              marginBottom: 48,
+            }}
           >
-            Add your first Q&A
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 pb-12">
-          {filteredQAs.map((c) => (
-            <QACard key={c.id} c={c} onDelete={handleDelete} onClick={setViewingQA} />
-          ))}
-          {filteredQAs.length === 0 && (
-             <div className="col-span-full py-10 text-center text-[#6E6C63] text-[13px]">
-                No Q&As match your search.
-             </div>
-          )}
-        </div>
+            <div
+              onClick={() => setViewing(hero)}
+              style={{
+                cursor: 'pointer', background: 'var(--color-text)', color: 'var(--color-bg)',
+                borderRadius: 24, padding: 32, display: 'flex', flexDirection: 'column', gap: 14,
+                boxShadow: 'var(--shadow-md)', gridRow: dueRest.length > 1 ? 'span 2' : 'span 1',
+              }}
+            >
+              {(hero.tags || []).length > 0 && (
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {hero.tags.map((tg) => (
+                    <span
+                      key={tg}
+                      style={{
+                        fontSize: 11, padding: '4px 10px', borderRadius: 999,
+                        background: 'color-mix(in srgb, var(--color-bg) 15%, transparent)',
+                      }}
+                    >
+                      {tg}
+                    </span>
+                  ))}
+                </div>
+              )}
+              <h3 style={{ fontSize: 28, lineHeight: 1.15, letterSpacing: '-.025em', margin: 0, color: 'inherit' }}>
+                {questionOf(hero)}
+              </h3>
+              <p
+                style={{
+                  fontSize: 14, lineHeight: 1.55, margin: 0, opacity: 0.75, flex: 1,
+                  display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}
+              >
+                {hero.answer}
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, opacity: 0.7 }}>
+                <span>Last rated {easeLabel(hero)}</span>
+                <span>·</span>
+                <span>{hero.review_count} reviews</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate('/practice'); }}
+                  className="btn"
+                  style={{ marginLeft: 'auto', background: 'var(--color-accent)', color: '#fff', fontSize: 13 }}
+                >
+                  Practise now
+                </button>
+              </div>
+            </div>
+
+            {dueRest.map((c) => (
+              <div
+                key={c.id}
+                onClick={() => setViewing(c)}
+                style={{
+                  cursor: 'pointer', background: 'var(--color-bg)', borderRadius: 20,
+                  padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 8,
+                  boxShadow: 'var(--shadow-sm)',
+                }}
+              >
+                {(c.tags || []).length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {c.tags.map((tg) => (
+                      <span key={tg} className="tag tag-accent">{tg}</span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 16, lineHeight: 1.25, letterSpacing: '-.01em' }}>
+                  {questionOf(c)}
+                </div>
+                <div className="text-muted" style={{ fontSize: 12 }}>
+                  {c.review_count} reviews · last {easeLabel(c)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
-      
-      {/* Full View Modal */}
-      {viewingQA && (
-        <ViewModal qa={viewingQA} onClose={() => setViewingQA(null)} />
+
+      <h2 style={{ fontSize: 22, letterSpacing: '-.02em', margin: '0 0 4px' }}>{restTitle}</h2>
+      <p className="text-muted" style={{ fontSize: 14, margin: '0 0 20px' }}>{restSub}</p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {rest.map((c) => (
+          <div
+            key={c.id}
+            onClick={() => setViewing(c)}
+            style={{
+              cursor: 'pointer', background: 'var(--color-bg)', borderRadius: 20,
+              padding: '22px 26px', display: 'grid',
+              gridTemplateColumns: 'minmax(0,1.1fr) minmax(0,1.4fr) auto',
+              gap: 24, alignItems: 'center', boxShadow: 'var(--shadow-sm)',
+            }}
+          >
+            <div>
+              {(c.tags || []).length > 0 && (
+                <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+                  {c.tags.map((tg) => (
+                    <span key={tg} className="tag tag-accent">{tg}</span>
+                  ))}
+                </div>
+              )}
+              <div style={{ fontFamily: 'var(--font-heading)', fontWeight: 800, fontSize: 17, lineHeight: 1.25, letterSpacing: '-.01em' }}>
+                {questionOf(c)}
+              </div>
+            </div>
+            <p
+              style={{
+                fontSize: 13.5, lineHeight: 1.55, margin: 0, opacity: 0.7,
+                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+              }}
+            >
+              {c.answer}
+            </p>
+            <div className="text-muted" style={{ fontSize: 12, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              Due {dueLabel(c)}
+              <br />
+              {c.review_count} reviews
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {matches.length === 0 && (
+        <p className="text-muted" style={{ padding: '32px 0', fontSize: 15 }}>
+          Nothing matches. Try another topic or clear the search.
+        </p>
       )}
     </div>
   );
